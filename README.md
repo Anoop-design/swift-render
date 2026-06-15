@@ -189,6 +189,7 @@ swift run swift-render render StyleReel --audio out/reel.wav
 
 | | |
 |---|---|
+| `FutureOfTheFirm` — a narrated, animated essay explainer ([docs](docs/future-of-the-firm.md)) | `bash tools/make_firm_audio.sh` |
 | `LaunchFilm2` — the launch film: every feature, one file | `swift run swift-render render LaunchFilm2 --audio out/launch.wav` |
 | `StyleReel` — 12 aesthetics with card-zoom transitions | `swift run swift-render render StyleReel --audio out/reel.wav` |
 | `Kinetic` — 12s kinetic-typography reel: word slams, marquee, galaxy iris, odometer ring | `swift run swift-render render Kinetic` |
