@@ -610,17 +610,34 @@ public enum Stylize {
 
     static func blueprint(_ ctx: GraphicsContext, _ size: CGSize, _ g: PixelGrid, _ k: Double) {
         let W = Double(size.width), H = Double(size.height)
-        let s = g.resized(cols: max(16, Int(240 * k)), fitting: size)
-        let out = s.mapped { _, _, _, x, y in
-            let a: Double = s.lum(x - 1, y - 1), b: Double = s.lum(x, y - 1), c: Double = s.lum(x + 1, y - 1)
-            let d: Double = s.lum(x - 1, y), f: Double = s.lum(x + 1, y)
-            let g0: Double = s.lum(x - 1, y + 1), h0: Double = s.lum(x, y + 1), i0: Double = s.lum(x + 1, y + 1)
-            let gx: Double = (c + 2 * f + i0) - (a + 2 * d + g0)
-            let gy: Double = (g0 + 2 * h0 + i0) - (a + 2 * b + c)
-            let e: Double = min(1, (gx * gx + gy * gy).squareRoot() * 2.6)
-            let base: Double = 0.78 + 0.3 * s.lum(x, y)
-            return (0.04 * base + e * 0.92, 0.20 * base + e * 0.78, 0.52 * base + e * 0.48)
+        // works at the grid's native resolution (up to 960 wide) — pass a fine grid for crisp lines
+        let s = g.resized(cols: min(g.cols, max(16, Int(960 * k))), fitting: size)
+        let w: Int = s.cols, hh: Int = s.rows
+        var lum = [Float](repeating: 0, count: w * hh)
+        for i in 0..<(w * hh) {
+            let r = Float(s.data[i * 4]), gr = Float(s.data[i * 4 + 1]), b = Float(s.data[i * 4 + 2])
+            lum[i] = (0.299 * r + 0.587 * gr + 0.114 * b) / 255
         }
+        let gain: Float = 2.6 * Float(w) / 240          // thinner gradients at higher res need more gain
+        var px = [UInt8](repeating: 255, count: w * hh * 4)
+        for y in 0..<hh {
+            let y0: Int = max(0, y - 1) * w, y1: Int = y * w, y2: Int = min(hh - 1, y + 1) * w
+            for x in 0..<w {
+                let xl: Int = max(0, x - 1), xr: Int = min(w - 1, x + 1)
+                let a: Float = lum[y0 + xl], b: Float = lum[y0 + x], c: Float = lum[y0 + xr]
+                let d: Float = lum[y1 + xl], f: Float = lum[y1 + xr]
+                let g0: Float = lum[y2 + xl], h0: Float = lum[y2 + x], i0: Float = lum[y2 + xr]
+                let gx: Float = (c + 2 * f + i0) - (a + 2 * d + g0)
+                let gy: Float = (g0 + 2 * h0 + i0) - (a + 2 * b + c)
+                let e: Float = min(1, max(0, (gx * gx + gy * gy).squareRoot() * gain - 0.22) * 1.3)   // noise floor
+                let base: Float = 0.78 + 0.3 * lum[y1 + x]
+                let o: Int = (y1 + x) * 4
+                px[o] = UInt8(min(255, (0.04 * base + e * 0.92) * 255))
+                px[o + 1] = UInt8(min(255, (0.20 * base + e * 0.78) * 255))
+                px[o + 2] = UInt8(min(255, (0.52 * base + e * 0.48) * 255))
+            }
+        }
+        let out = PixelGrid(cols: w, rows: hh, data: px)
         image(ctx, out, size, smooth: true)
         let step: Double = W / 48
         var minor = Path(), major = Path()
@@ -661,7 +678,7 @@ public enum Stylize {
 
     static func thermal(_ ctx: GraphicsContext, _ size: CGSize, _ g: PixelGrid, _ k: Double) {
         let W = Double(size.width), H = Double(size.height)
-        let s = g.resized(cols: max(12, Int(96 * k)), fitting: size)
+        let s = g.resized(cols: min(g.cols, max(12, Int(960 * k))), fitting: size)
         let out = s.mapped { r, gg, b, _, _ in heat(pow(0.299 * r + 0.587 * gg + 0.114 * b, 0.8) * 1.08) }
         image(ctx, out, size, smooth: true)
         let barW: Double = W * 0.012, x: Double = W * 0.955, y0: Double = H * 0.2, y1: Double = H * 0.8

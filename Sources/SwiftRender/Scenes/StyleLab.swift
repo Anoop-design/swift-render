@@ -22,6 +22,7 @@ public struct StyleLab: RenderScene {
     static let styleStart: Double = bar * 2
     static let gridStart: Double = bar * 18
     static let lockStart: Double = bar * 20
+    static let fineStart: Double = bar * 16
     static let W: Double = 1920, H: Double = 1080
     static let full = CGSize(width: 1920, height: 1080)
     static let volt = Color(red: 0.78, green: 1.0, blue: 0.10)
@@ -41,8 +42,8 @@ public struct StyleLab: RenderScene {
         (.bricks, "BRICKS", "48 × 27 studs · 16 colours"),
         (.crossStitch, "CROSS-STITCH", "2,880 stitches on aida"),
         (.lowPoly, "LOW-POLY", "896 drifting facets"),
-        (.blueprint, "BLUEPRINT", "Sobel edges · cyanotype"),
-        (.thermal, "THERMAL", "luminance → iron palette"),
+        (.blueprint, "BLUEPRINT", "960 × 540 Sobel edges · cyanotype"),
+        (.thermal, "THERMAL", "960 × 540 · luminance → iron palette"),
     ]
 
     // MARK: - Soundtrack (through-composed; a new motif for every style)
@@ -180,11 +181,13 @@ public struct StyleLab: RenderScene {
         let shot = Canvas { ctx, size in drawShot(ctx, size, t) }
         let grid: PixelGrid = PixelGrid.sample(shot, size: full, cols: 320)
             ?? PixelGrid(cols: 1, rows: 1, data: [0, 0, 0, 255])
+        // blueprint + thermal want real detail: give them a 960-wide snapshot once they are on screen
+        let fine: PixelGrid = t >= fineStart ? (PixelGrid.sample(shot, size: full, cols: 960) ?? grid) : grid
         let fadeIn: Double = 1 - Ease.clip(t, 0, 0.35)
         let fadeOut: Double = Ease.easeIn(Ease.clip(t, duration - 0.9, duration))
         return ZStack {
             Color.black
-            stage(t, grid)
+            stage(t, grid, fine)
             Color.black.opacity(max(fadeIn, fadeOut))
         }
         .frame(width: W, height: H)
@@ -193,16 +196,16 @@ public struct StyleLab: RenderScene {
     }
 
     @ViewBuilder @MainActor
-    static func stage(_ t: Double, _ grid: PixelGrid) -> some View {
+    static func stage(_ t: Double, _ grid: PixelGrid, _ fine: PixelGrid) -> some View {
         if t < styleStart {
             ZStack {
                 Canvas { ctx, size in drawShot(ctx, size, t) }
                 introType(t)
             }
         } else if t < gridStart {
-            styleRun(t, grid)
+            styleRun(t, grid, fine)
         } else {
-            wall(t, grid)
+            wall(t, grid, fine)
         }
     }
 
@@ -244,20 +247,20 @@ public struct StyleLab: RenderScene {
     // MARK: one style per bar
 
     @MainActor
-    static func layer(_ index: Int, _ grid: PixelGrid, _ t: Double) -> AnyView {
+    static func layer(_ index: Int, _ grid: PixelGrid, _ fine: PixelGrid, _ t: Double) -> AnyView {
         if index < 0 { return AnyView(Canvas { ctx, size in drawShot(ctx, size, t) }.frame(width: W, height: H)) }
-        return AnyView(Stylize.view(looks[index].0, grid: grid, size: full, density: 1, t: t))
+        return AnyView(Stylize.view(looks[index].0, grid: index >= 14 ? fine : grid, size: full, density: 1, t: t))
     }
 
     @ViewBuilder @MainActor
-    static func styleRun(_ t: Double, _ grid: PixelGrid) -> some View {
+    static func styleRun(_ t: Double, _ grid: PixelGrid, _ fine: PixelGrid) -> some View {
         let i: Int = min(15, Int((t - styleStart) / bar))
         let local: Double = t - styleStart - Double(i) * bar
         let p: Double = Ease.easeInOut(Ease.clip(local, 0, 0.42))
         let dir: Int = i % 4
         ZStack(alignment: .topLeading) {
-            if p < 1 { layer(i - 1, grid, t) }
-            layer(i, grid, t).mask(alignment: .topLeading) { wipeMask(dir, p) }
+            if p < 1 { layer(i - 1, grid, fine, t) }
+            layer(i, grid, fine, t).mask(alignment: .topLeading) { wipeMask(dir, p) }
             if p < 1 { wipeEdge(dir, p) }
             label(i, local)
             pips(i)
@@ -326,7 +329,7 @@ public struct StyleLab: RenderScene {
     // MARK: the wall — all sixteen, live
 
     @ViewBuilder @MainActor
-    static func wall(_ t: Double, _ grid: PixelGrid) -> some View {
+    static func wall(_ t: Double, _ grid: PixelGrid, _ fine: PixelGrid) -> some View {
         let local: Double = t - gridStart
         let dim: Double = Ease.easeOut(Ease.clip(t, lockStart, lockStart + 0.45))
         let drift: Double = 1 + 0.025 * Ease.clip(t, gridStart + bar, lockStart + bar * 2)
@@ -336,7 +339,7 @@ public struct StyleLab: RenderScene {
                 let born: Double = Double(i) * beat / 4
                 if local >= born {
                     let p: Double = Ease.spring(local - born, from: 0, to: 1, response: 0.3, dampingFraction: 0.68)
-                    tile(i, grid, t)
+                    tile(i, i >= 14 ? fine : grid, t)
                         .scaleEffect(0.55 + 0.45 * p)
                         .opacity(min(1, p * 2.2))
                         .position(x: (Double(i % 4) + 0.5) * 480, y: (Double(i / 4) + 0.5) * 270)
