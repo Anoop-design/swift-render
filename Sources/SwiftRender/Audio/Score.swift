@@ -16,6 +16,8 @@ public struct Note: ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral, Send
     public static let e1 = Note(41.20), g1 = Note(49.00), a1 = Note(55.00)
     public static let b1 = Note(61.74), c2 = Note(65.41), d2 = Note(73.42)
     public static let e2 = Note(82.41), g2 = Note(98.00), a2 = Note(110.0)
+    /// Equal-tempered pitch from a MIDI note number (69 = A4 = 440 Hz).
+    public static func midi(_ n: Int) -> Note { Note(440.0 * Foundation.pow(2.0, Double(n - 69) / 12.0)) }
 }
 
 // MARK: - ScoreEvent
@@ -27,6 +29,8 @@ public struct ScoreEvent: Sendable {
         case bass(Note)
         case drone(Note)
         case whoosh(rising: Bool)
+        case pluck(Note), bell(Note), pad(Note), chip(Note), triBass(Note)
+        case laser
     }
     public var time: Double
     public var sound: Sound
@@ -92,6 +96,24 @@ public func riser(at t: Double, duration: Double = 3.4, amp: Double = 0.55) -> [
 public func drone(_ note: Note = .a1, from t: Double, for d: Double = 7.0,
                   amp: Double = 0.15) -> [ScoreEvent] {
     [ScoreEvent(t, .drone(note), amp: amp, duration: d)]
+}
+public func pluck(_ note: Note, at t: Double, amp: Double = 0.16, duration: Double = 0.9, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .pluck(note), amp: amp, duration: duration, pan: pan)]
+}
+public func bell(_ note: Note, at t: Double, amp: Double = 0.13, duration: Double = 1.6, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .bell(note), amp: amp, duration: duration, pan: pan)]
+}
+public func pad(_ note: Note, at t: Double, amp: Double = 0.04, duration: Double = 2, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .pad(note), amp: amp, duration: duration, pan: pan)]
+}
+public func chip(_ note: Note, at t: Double, amp: Double = 0.1, duration: Double = 0.18, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .chip(note), amp: amp, duration: duration, pan: pan)]
+}
+public func triBass(_ note: Note, at t: Double, amp: Double = 0.3, duration: Double = 0.5, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .triBass(note), amp: amp, duration: duration, pan: pan)]
+}
+public func laser(at t: Double, amp: Double = 0.2, duration: Double = 0.2, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .laser, amp: amp, duration: duration, pan: pan)]
 }
 public func whoosh(at t: Double, rising: Bool = true, amp: Double = 0.5,
                    duration: Double = 0.7) -> [ScoreEvent] {
@@ -195,6 +217,18 @@ public enum ScoreSynth {
                 mixer.add(Voice.riser(amp: a, dur: d > 0 ? d : 3.4), at: e.time, pan: pan)
             case .drone(let note):
                 mixer.add(Voice.drone(amp: a, dur: d > 0 ? d : 7.0, f: Float(note.hz)), at: e.time, pan: pan)
+            case .pluck(let n):
+                mixer.add(Voice.pluck(Float(n.hz), amp: a, dur: d > 0 ? d : 0.9), at: e.time, pan: pan)
+            case .bell(let n):
+                mixer.add(Voice.bell(Float(n.hz), amp: a, dur: d > 0 ? d : 1.6), at: e.time, pan: pan)
+            case .pad(let n):
+                mixer.add(Voice.pad(Float(n.hz), amp: a, dur: d > 0 ? d : 2), at: e.time, pan: pan)
+            case .chip(let n):
+                mixer.add(Voice.chip(Float(n.hz), amp: a, dur: d > 0 ? d : 0.18), at: e.time, pan: pan)
+            case .triBass(let n):
+                mixer.add(Voice.triBass(Float(n.hz), amp: a, dur: d > 0 ? d : 0.5), at: e.time, pan: pan)
+            case .laser:
+                mixer.add(Voice.laser(amp: a, dur: d > 0 ? d : 0.2), at: e.time, pan: pan)
             case .whoosh(let rising):
                 mixer.add(Voice.whoosh(amp: a, dur: d > 0 ? d : 0.7, rising: rising, seed: 10 + seed(i, e.time) % 13), at: e.time, pan: pan)
             }

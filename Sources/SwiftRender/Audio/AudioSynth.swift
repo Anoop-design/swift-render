@@ -162,6 +162,117 @@ public enum Voice {
     }
 }
 
+// MARK: - Melodic voices (pluck / bell / pad / chip / triangle bass / laser)
+
+extension Voice {
+    /// Feedback echo baked into the voice tail (cheap space, fully deterministic).
+    static func echo(_ x: [Float], delay: Float, feedback: Float, taps: Int) -> [Float] {
+        let d = samples(delay)
+        var out = x + [Float](repeating: 0, count: d * taps)
+        for k in 1...max(1, taps) {
+            let g = Foundation.pow(feedback, Float(k))
+            for i in 0..<x.count { out[i + d * k] += x[i] * g }
+        }
+        return out
+    }
+
+    /// Soft kalimba-ish pluck: four decaying harmonics + dotted-eighth echo.
+    public static func pluck(_ f: Float, amp: Float = 0.16, dur: Float = 0.9) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = [Float](repeating: 0, count: n)
+        for (k, a, r) in [(Float(1), Float(1), Float(3.2)), (2, 0.42, 6), (3, 0.2, 9), (4, 0.08, 13)] where f * k < 9000 {
+            let h = vDSP.multiply(vForce.sin(vDSP.multiply(2 * Float.pi * f * k, t)),
+                                  vForce.exp(vDSP.multiply(-r, t)))
+            vDSP.add(sig, vDSP.multiply(a, h), result: &sig)
+        }
+        let atk = samples(0.004)
+        for i in 0..<min(n, atk) { sig[i] *= Float(i) / Float(atk) }
+        return echo(vDSP.multiply(amp, sig), delay: 0.234, feedback: 0.33, taps: 3)
+    }
+
+    /// FM bell (inharmonic 3.5 ratio, index decays) with a longer echo.
+    public static func bell(_ f: Float, amp: Float = 0.13, dur: Float = 1.6) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        let idx = vDSP.multiply(2.0, vForce.exp(vDSP.multiply(-3.2, t)))
+        let mod = vDSP.multiply(idx, vForce.sin(vDSP.multiply(2 * Float.pi * f * 3.5, t)))
+        let arg = vDSP.add(vDSP.multiply(2 * Float.pi * f, t), mod)
+        var sig = vDSP.multiply(vForce.sin(arg), vForce.exp(vDSP.multiply(-2.2, t)))
+        let atk = samples(0.003)
+        for i in 0..<min(n, atk) { sig[i] *= Float(i) / Float(atk) }
+        let rel = samples(0.12)
+        for i in 0..<min(n, rel) { sig[n - 1 - i] *= Float(i) / Float(rel) }
+        return echo(vDSP.multiply(amp, sig), delay: 0.352, feedback: 0.38, taps: 3)
+    }
+
+    /// Slow, warm pad: two detuned stacks of three harmonics, long attack/release.
+    public static func pad(_ f: Float, amp: Float = 0.04, dur: Float = 2) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = [Float](repeating: 0, count: n)
+        for det in [Float(0.997), 1.003] {
+            for (k, a) in [(Float(1), Float(1)), (2, 0.32), (3, 0.1)] {
+                let h = vForce.sin(vDSP.multiply(2 * Float.pi * f * det * k, t))
+                vDSP.add(sig, vDSP.multiply(a, h), result: &sig)
+            }
+        }
+        let trem = vDSP.add(0.9, vDSP.multiply(0.1, vForce.sin(vDSP.multiply(2 * Float.pi * 0.27, t))))
+        sig = vDSP.multiply(sig, trem)
+        let attack: Float = min(0.7, dur * 0.35), release: Float = min(0.9, dur * 0.4)
+        for i in 0..<n {
+            let tt = Float(i) / SR
+            sig[i] *= min(1, tt / attack) * max(0, min(1, (dur - tt) / release)) * amp
+        }
+        return sig
+    }
+
+    /// Band-limited 25% pulse — the "chip" blip, with a short echo.
+    public static func chip(_ f: Float, amp: Float = 0.1, dur: Float = 0.18) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = [Float](repeating: 0, count: n)
+        for k in 1...8 where f * Float(k) < 7000 {
+            let a = 2 / (Float(k) * Float.pi) * Foundation.sin(Float(k) * Float.pi * 0.25)
+            vDSP.add(sig, vDSP.multiply(a, vForce.cos(vDSP.multiply(2 * Float.pi * f * Float(k), t))), result: &sig)
+        }
+        let env = vForce.exp(vDSP.multiply(-11, t))
+        sig = vDSP.multiply(sig, env)
+        let atk = samples(0.002)
+        for i in 0..<min(n, atk) { sig[i] *= Float(i) / Float(atk) }
+        return echo(vDSP.multiply(amp, sig), delay: 0.117, feedback: 0.3, taps: 2)
+    }
+
+    /// Round triangle bass with a gentle decay, no tanh crunch.
+    public static func triBass(_ f: Float, amp: Float = 0.3, dur: Float = 0.5) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = [Float](repeating: 0, count: n)
+        for (i, k) in [Float(1), 3, 5, 7].enumerated() {
+            let a = (i % 2 == 0 ? 1 : -1) / (k * k)
+            vDSP.add(sig, vDSP.multiply(a, vForce.sin(vDSP.multiply(2 * Float.pi * f * k, t))), result: &sig)
+        }
+        for i in 0..<n {
+            let tt = Float(i) / SR
+            sig[i] *= min(1, tt / 0.01) * max(0, min(1, (dur - tt) / 0.07)) * Foundation.exp(-tt * 0.9) * amp
+        }
+        return sig
+    }
+
+    /// Descending pulse chirp — "pew".
+    public static func laser(amp: Float = 0.2, dur: Float = 0.2) -> [Float] {
+        let n = samples(dur)
+        var freq = [Float](repeating: 0, count: n)
+        for i in 0..<n { freq[i] = 1700 * Foundation.pow(0.16, Float(i) / Float(n)) }
+        var sig = sweptSine(freq)
+        vDSP.add(sig, vDSP.multiply(0.35, sweptSine(vDSP.multiply(2, freq))), result: &sig)
+        sig = vDSP.multiply(sig, envExp(n, rate: 14))
+        let atk = samples(0.002)
+        for i in 0..<min(n, atk) { sig[i] *= Float(i) / Float(atk) }
+        return vDSP.multiply(amp, sig)
+    }
+}
+
 // MARK: - Event mixer: ducked music bus + clean kick bus, sidechain, master
 
 public struct Mixer {

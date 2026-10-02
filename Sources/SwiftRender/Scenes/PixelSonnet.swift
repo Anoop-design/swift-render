@@ -39,46 +39,116 @@ public struct PixelSonnet: RenderScene {
     static let peach  = Color(red: 1.00, green: 0.80, blue: 0.67)
     static let white  = Color(red: 1.00, green: 0.95, blue: 0.91)
 
-    // MARK: soundtrack
+    // MARK: soundtrack — through-composed, A minor → C. No loop repeats.
 
     public static func soundtrack(duration: Double) -> Score? {
-        Score(duration: duration) {
-            // boot: ticking hats, blip on PRESS START
-            every(beat, from: 0, to: bar * 2) { hat(at: $0, amp: 0.10) }
-            bass(Note(880), at: 0.9, duration: 0.18, amp: 0.2)
-            bass(Note(1320), at: 1.05, duration: 0.25, amp: 0.2)
+        var ev: [ScoreEvent] = []
+        func at(_ bar: Int, _ beats: Double) -> Double { Double(bar) * Self.bar + beats * beat }
+        let m = Note.midi
 
-            // groove from bar 2 → 9
-            boom(at: bar * 2, amp: 0.8, duration: 1.4)
-            fourOnFloor(from: bar * 2, to: bar * 9, bpm: 128)
-            hatSixteenths(from: bar * 2, to: bar * 9, bpm: 128)
-            bassline([.a1, .a1, .c2, .g1], from: bar * 2, to: bar * 9, bpm: 128)
-            crashes(at: cuts)
-
-            // chiptune arpeggio on sixteenths (Am – F – C – G)
-            let chords: [[Double]] = [[220, 262, 330, 440], [175, 220, 262, 349],
-                                      [262, 330, 392, 523], [196, 247, 294, 392]]
-            every(beat / 4, from: bar * 2, to: bar * 9) { t in
-                let step = Int((t - bar * 2) / (beat / 4))
-                let chord = chords[(step / 16) % 4]
-                return bass(Note(chord[step % 4]), at: t, duration: 0.11, amp: 0.10)
+        // pad spans: (first bar, bars, chord tones, pan spread)
+        let spans: [(Int, Int, [Int])] = [
+            (0, 3, [57, 60, 64, 67]), (3, 1, [53, 57, 60, 64]), (4, 1, [55, 60, 64, 67]),
+            (5, 1, [57, 60, 64, 67]), (6, 1, [52, 56, 59, 62]), (7, 1, [53, 57, 60, 64]),
+            (8, 1, [55, 59, 62, 67]), (9, 1, [55, 60, 64, 71]),
+        ]
+        for (b0, n, tones) in spans {
+            for (i, midi) in tones.enumerated() {
+                ev += pad(m(midi), at: at(b0, 0), amp: 0.032, duration: Double(n) * bar + 0.5, pan: Double(i - 1) * 0.35)
             }
-
-            // boss fight: shots + hits + explosion
-            let b = bar * 5
-            for f in fire { bass(Note(1175), at: b + f, duration: 0.08, amp: 0.22) }
-            for h in hitTimes { clap(at: b + h, amp: 0.5) }
-            boom(at: b + killLocal, amp: 0.9, duration: 1.0)
-            crash(at: b + killLocal, amp: 0.4)
-
-            // skill tree ticks
-            for i in 0..<5 { bass(Note(660 + Double(i) * 110), at: bar * 7 + 0.5 + beat * Double(i), duration: 0.12, amp: 0.2) }
-
-            // credits: riser into a final hit
-            riser(at: bar * 8, duration: bar, amp: 0.5)
-            boom(at: bar * 9, amp: 1.0)
-            drone(.a1, from: bar * 9, for: bar, amp: 0.14)
         }
+
+        // boot: twinkles, hero drop, start jingle
+        for (t, n) in [(0.4, 81), (1.15, 76), (2.3, 84), (2.9, 79)] { ev += bell(m(n), at: t, amp: 0.10, pan: n > 80 ? 0.4 : -0.4) }
+        ev += whoosh(at: 0.8, rising: false, amp: 0.22, duration: 0.7)
+        ev += chip(m(83), at: 1.55, amp: 0.08); ev += chip(m(88), at: 1.64, amp: 0.08)
+        ev += whoosh(at: cuts[0] - 0.55, rising: true, amp: 0.3, duration: 0.55)
+        for (i, n) in [72, 76, 79].enumerated() { ev += bell(m(n), at: cuts[0] - 0.4 + Double(i) * 0.1, amp: 0.09) }
+
+        // bass lines: (beat, semitones above root, length in beats)
+        let roots: [Int: Int] = [2: 45, 3: 41, 4: 48, 5: 45, 6: 40, 7: 41, 8: 43, 9: 48]
+        let lines: [Int: [(Double, Int, Double)]] = [
+            2: [(0, 0, 1.75), (2, 0, 0.5), (2.75, 7, 0.5), (3.5, 12, 0.5)],
+            3: [(0, 0, 1), (1.5, 0, 0.5), (2, 7, 1), (3, 5, 0.5), (3.5, 0, 0.5)],
+            4: [(0, 0, 2), (2.5, 0, 0.5), (3, 7, 0.75)],
+            5: [(0, 0, 0.45), (0.5, 0, 0.45), (1, 12, 0.45), (1.5, 0, 0.45), (2, 7, 0.45), (2.5, 0, 0.45), (3, 12, 0.45), (3.5, 7, 0.45)],
+            6: [(0, 0, 0.45), (0.5, 12, 0.45), (1, 0, 0.45), (1.5, 12, 0.2)],
+            7: [(0, 0, 3.5)],
+            8: [(0, 0, 2), (2, 7, 1.8)],
+            9: [(0, 0, 3.5)],
+        ]
+        for (b, notes) in lines {
+            for (beatPos, semi, len) in notes {
+                let note = m(roots[b]! + semi)
+                ev += triBass(note, at: at(b, beatPos), amp: 0.26, duration: len * beat)
+                ev += triBass(m(roots[b]! + semi + 12), at: at(b, beatPos), amp: 0.07, duration: len * beat)
+            }
+        }
+
+        // drums — world: half-time, loose hats
+        ev += boom(at: at(2, 0), amp: 0.45, duration: 1.4)
+        let worldKicks: [Int: [Double]] = [2: [0, 2.5], 3: [0, 1.5, 2.5], 4: [0, 2.5, 3.5]]
+        for (b, bs) in worldKicks {
+            for x in bs { ev += kick(at: at(b, x), amp: 0.55) }
+            ev += clap(at: at(b, 2), amp: 0.2)
+            for i in 0..<8 where h(b * 8 + i) > 0.28 {
+                ev += hat(at: at(b, Double(i) * 0.5 + (i % 2 == 1 ? 0.06 : 0)), amp: 0.03 + 0.03 * Double(i % 2),
+                          pan: i % 2 == 0 ? -0.3 : 0.3)
+            }
+        }
+        // drums — boss: driving, then drops out at the kill
+        let kill = at(5, 0) + killLocal
+        for i in 0..<8 {
+            let x = Double(i) * 0.5
+            if i % 2 == 0 { ev += kick(at: at(5, x), amp: 0.7) }
+            if i == 2 || i == 6 { ev += clap(at: at(5, x), amp: 0.3) }
+        }
+        ev += kick(at: at(5, 3.75), amp: 0.5)
+        for x in [0.0, 1.0] { ev += kick(at: at(6, x), amp: 0.7) }
+        ev += clap(at: at(6, 1), amp: 0.3)
+        for i in 0..<16 where h(100 + i) > 0.3 { ev += hat(at: at(5, Double(i) * 0.25), amp: 0.025 + 0.02 * Double(i % 4 == 2 ? 1 : 0), pan: i % 2 == 0 ? 0.3 : -0.3) }
+
+        // boss sfx
+        for f in fire { ev += laser(at: at(5, 0) + f, amp: 0.2) }
+        for hh in hitTimes {
+            ev += clap(at: at(5, 0) + hh, amp: 0.32)
+            ev += chip(m(52), at: at(5, 0) + hh, amp: 0.1, duration: 0.1)
+        }
+        ev += boom(at: kill, amp: 0.8, duration: 1.2); ev += crash(at: kill, amp: 0.3)
+        for (i, n) in [84, 88, 91, 96].enumerated() { ev += bell(m(n), at: kill + 0.5 + Double(i) * 0.11, amp: 0.1, pan: Double(i - 2) * 0.3) }
+
+        // lead pluck phrases (beat, midi, length) — every bar different
+        let phrases: [Int: [(Double, Int)]] = [
+            2: [(0, 76), (1, 72), (1.5, 74), (2, 76), (3, 79), (3.5, 76)],
+            3: [(0, 72), (0.75, 76), (1.5, 77), (2.5, 76), (3, 72)],
+            4: [(0, 79), (1, 76), (2, 74), (2.5, 76), (3, 72)],
+            5: [(0, 81), (0.5, 79), (1, 76), (1.5, 79), (2, 81), (2.5, 84), (3, 83), (3.5, 79)],
+            6: [(0, 83), (0.5, 80), (1, 76), (1.5, 83)],
+            8: [(0, 79), (1.5, 83), (3, 86)],
+        ]
+        for (b, notes) in phrases {
+            for (beatPos, midi) in notes { ev += pluck(m(midi), at: at(b, beatPos), amp: 0.15, pan: Double((midi % 5) - 2) * 0.12) }
+        }
+
+        // dialogue blips — every other character, pitch from a hash
+        for (start, count) in [(cuts[0] + 0.4, 19), (cuts[0] + 3.1, 27)] {
+            for i in stride(from: 0, to: count, by: 2) {
+                let pitch = [72, 76, 79, 81, 84, 74][Int(h(i + Int(start * 10)) * 6) % 6]
+                ev += chip(m(pitch), at: start + Double(i) / 18, amp: 0.035, duration: 0.07)
+            }
+        }
+
+        // skill tree: rising bells, then a sad pluck for the grass
+        for (i, n) in [72, 76, 79, 84].enumerated() { ev += bell(m(n), at: at(7, 0) + 0.5 + beat * Double(i), amp: 0.11) }
+        ev += pluck(m(55), at: at(7, 0) + 0.5 + beat * 4, amp: 0.15)
+        for i in 0..<4 { ev += hat(at: at(7, Double(i)), amp: 0.05) }
+        ev += riser(at: at(8, 0), duration: bar, amp: 0.4)
+
+        // credits
+        ev += boom(at: at(9, 0), amp: 0.55, duration: 1.6); ev += crash(at: at(9, 0), amp: 0.15)
+        for (t, n) in [(0.0, 72), (0.4, 76), (0.8, 79), (1.2, 84), (1.9, 88)] { ev += bell(m(n), at: at(9, 0) + t, amp: 0.1, duration: 2.0, pan: (t - 1) * 0.3) }
+
+        return Score(duration: duration) { ev }
     }
 
     // MARK: body
@@ -117,15 +187,14 @@ public struct PixelSonnet: RenderScene {
     // MARK: scenes
 
     @MainActor static func boot(_ p: inout Pix, _ t: Double) {
+        p.halftone(0, 40, W, 95, cell: 5) { x, y in
+            let d = (((x - 120) / 120) * ((x - 120) / 120) + ((y - 100) / 60) * ((y - 100) / 60)).squareRoot()
+            return max(0, 1.05 - d) * 0.95
+        } color: { _, _ in plum }
         stars(&p, t, count: 70, maxY: 135)
         let title = "SONNET 5.5"
         let shown = min(title.count, Int(t / 0.09))
-        let x0 = 30.0
-        for (i, ch) in title.prefix(shown).enumerated() {
-            let fresh = t - Double(i) * 0.09 < 0.12
-            p.text(String(ch), x0 + Double(i) * 18, 22 + (fresh ? -2 : 0), scale: 3,
-                   fresh ? white : yellow, shadow: plum)
-        }
+        p.htText(String(title.prefix(shown)), 30, 22, scale: 3, yellow, shadow: plum, t: t)
         if t > 1.8 { p.text("A PIXEL ADVENTURE", 69, 52, scale: 1, lav) }
         // hero drops in
         let drop = Ease.bounce(Ease.clip(t, 0.9, 1.6))
@@ -184,17 +253,18 @@ public struct PixelSonnet: RenderScene {
         for i in 0..<4 { p.rect(200 + Double(i) * 8, 6, 6, 7, i < 4 - hitsSoFar ? red : indigo) }
         if t > kill + 0.2 {
             let u = t - kill - 0.2
-            p.text("BUG SQUASHED!", 48, 24 - min(u * 6, 6), scale: 2, yellow, shadow: plum)
+            p.htText("BUG SQUASHED!", 48, 24 - min(u * 6, 6), scale: 2, yellow, shadow: plum, t: t)
             if u > 0.2 { p.text("+100", 100, 44 - min((u - 0.2) * 20, 10), scale: 2, green, shadow: ink) }
         }
     }
 
     @MainActor static func skills(_ p: inout Pix, _ t: Double) {
         p.fillAll(indigo)
+        p.halftone(0, 0, W, H, cell: 6) { _, y in (y / H) * 0.95 } color: { _, _ in plum }
         stars(&p, t, count: 40, maxY: 135)
         p.frame(8, 8, W - 16, H - 16, white)
         p.frame(11, 11, W - 22, H - 22, lav)
-        p.text("SKILL TREE", 60, 20, scale: 2, yellow, shadow: plum)
+        p.htText("SKILL TREE", 60, 20, scale: 2, yellow, shadow: plum, t: t)
         let rows: [(String, Int, String)] = [
             ("CODE", 10, "MAX"), ("PROSE", 10, "MAX"), ("MATH", 9, "LV 9"),
             ("CURIOSITY", 10, "MAX"), ("TOUCHING GRASS", 2, "NOOB"),
@@ -221,8 +291,8 @@ public struct PixelSonnet: RenderScene {
         hills(&p, offset: 40, base: 92, amp: 7, color: indigo, seed: 2.0)
         ground(&p, 0)
         let pop = Ease.bounce(Ease.clip(t, 0, 0.5))
-        p.text("THANKS FOR PLAYING", 12, 16 - 10 * (1 - pop), scale: 2, white, shadow: ink)
-        p.text("SONNET 5.5", 30, 40 - 10 * (1 - pop), scale: 3, yellow, shadow: plum)
+        p.htText("THANKS FOR PLAYING", 12, 16 - 10 * (1 - pop), scale: 2, white, shadow: ink, t: t)
+        p.htText("SONNET 5.5", 30, 40 - 10 * (1 - pop), scale: 3, yellow, shadow: plum, t: t)
         hero(&p, 102, 62, t: t, walking: false, scale: 3)
         if Int(t / (beat / 2)) % 2 == 0 { p.text("INSERT COIN", 87, 120, scale: 1, white, shadow: ink) }
     }
@@ -235,23 +305,37 @@ public struct PixelSonnet: RenderScene {
     }
 
     @MainActor static func sky(_ p: inout Pix, _ t: Double) {
-        let bands: [Color] = [indigo, indigo, plum, plum, red, pink, orange, orange]
-        let bh = groundY / Double(bands.count)
-        for (i, c) in bands.enumerated() { p.rect(0, (Double(i) * bh).rounded(), W, bh.rounded() + 1, c) }
-        for i in 1..<bands.count {
-            let yb = (Double(i) * bh).rounded()
-            for r in 0..<3 {
-                var x = Double(r % 2)
-                while x < W { p.rect(x, yb - 1 + Double(r), 1, 1, bands[i]); x += 2 }
+        let ramp: [Color] = [indigo, plum, red, pink, orange]
+        let cell = 2.0
+        let rows = Int(groundY / cell)
+        let cols = Int(W / cell)
+        for r in 0..<rows {
+            let u = (Double(r) + 0.5) / Double(rows)
+            let seg = min(ramp.count - 2, Int(u * Double(ramp.count - 1)))
+            let f = u * Double(ramp.count - 1) - Double(seg)
+            var runStart = 0
+            var runColor = ramp[seg]
+            for c in 0...cols {
+                let col: Color? = c < cols
+                    ? (f > (bayer[(c % 4) + (r % 4) * 4] + 0.5) / 16 ? ramp[seg + 1] : ramp[seg])
+                    : nil
+                if c == cols || !(col == runColor) {
+                    p.rect(Double(runStart) * cell, Double(r) * cell, Double(c - runStart) * cell, cell, runColor)
+                    runStart = c
+                    if let col { runColor = col }
+                }
             }
         }
         stars(&p, t, count: 45, maxY: 50)
-        // striped sun
-        let cx = 176.0, cy = 86.0, r = 24.0
-        for dy in stride(from: -r, through: 0, by: 1) {
-            if dy > -10, Int(-dy) % 4 < 1 { continue }
-            let w = (r * r - dy * dy).squareRoot()
-            p.rect((cx - w).rounded(), cy + dy, (w * 2).rounded(), 1, dy < -12 ? yellow : orange)
+        // halftone sun: dots shrink toward the rim, stripes cut the lower half
+        let cx = 176.0, cy = 66.0, r = 26.0
+        p.halftone(cx - r, cy - r, r * 2, r * 2, cell: 3) { x, y in
+            let d = ((x - cx) * (x - cx) + (y - cy) * (y - cy)).squareRoot() / r
+            if d > 1 { return 0 }
+            if y > cy - 12, Int(y - cy + 40) % 5 < 1 { return 0 }
+            return 1.25 - 0.4 * d * d
+        } color: { x, y in
+            ((x - cx) * (x - cx) + (y - cy) * (y - cy)).squareRoot() / r < 0.7 ? yellow : orange
         }
     }
 
@@ -300,10 +384,10 @@ public struct PixelSonnet: RenderScene {
         ".....K......",
         "..KKKKKKKK..",
         ".KPPPPPPPPK.",
-        ".KPKKPPKKPK.",
-        ".KPKKPPKKPK.",
-        ".KPKPPPPKPK.",
-        ".KPPKKKKPPK.",
+        ".KPPKPPKPPK.",
+        ".KPPKPPKPPK.",
+        ".KPPPPPPPPK.",
+        ".KPPPRRPPPK.",
         "..KKKKKKKK..",
         "...KCCCCK...",
         "..KCCCCCCK..",
@@ -313,7 +397,7 @@ public struct PixelSonnet: RenderScene {
     static let legsA = ["...KK..KK...", "..KKK..KKK."]
     static let legsB = ["....KK.KK...", "....KKKKKK.."]
     static let heroPalette: [Character: Color] = [
-        "K": ink, "P": peach, "C": blue, "Y": yellow,
+        "K": ink, "P": peach, "C": blue, "Y": yellow, "R": red,
     ]
 
     @MainActor static func hero(_ p: inout Pix, _ x: Double, _ y: Double, t: Double,
@@ -327,8 +411,8 @@ public struct PixelSonnet: RenderScene {
         p.sprite(legs, heroPalette, x, ty + Double(heroRows.count) * scale, scale)
         // blink
         if Int(t * 10) % 25 == 0 {
-            p.rect(x + 3 * scale, ty + 4 * scale, 2 * scale, 2 * scale, peach)
-            p.rect(x + 7 * scale, ty + 4 * scale, 2 * scale, 2 * scale, peach)
+            p.rect(x + 4 * scale, ty + 4 * scale, scale, 2 * scale, peach)
+            p.rect(x + 7 * scale, ty + 4 * scale, scale, 2 * scale, peach)
         }
     }
 
@@ -352,7 +436,14 @@ public struct PixelSonnet: RenderScene {
     }
 
     @MainActor static func explosion(_ p: inout Pix, _ cx: Double, _ cy: Double, t: Double) {
-        if t < 0.12 { p.rect(cx - 18, cy - 12, 36, 24, white); return }
+        if t < 0.06 { p.rect(cx - 18, cy - 12, 36, 24, white); return }
+        if t < 0.5 {
+            let rad = t * 120
+            p.halftone(cx - 60, cy - 50, 120, 100, cell: 4) { x, y in
+                let d = ((x - cx) * (x - cx) + (y - cy) * (y - cy)).squareRoot()
+                return max(0, 1 - abs(d - rad) / 9) * (1 - t * 1.6)
+            } color: { _, _ in yellow }
+        }
         let cols = [red, orange, yellow, white]
         for i in 0..<28 {
             let a = h(i) * .pi * 2
@@ -390,25 +481,25 @@ public struct PixelSonnet: RenderScene {
     // MARK: post
 
     @MainActor static func scanlines(_ p: inout Pix) {
+        p.halftone(0, 0, W, H, cell: 4) { x, y in
+            let dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2)
+            let r = ((dx * dx + dy * dy) / 2).squareRoot()
+            return max(0, min(1, (r - 0.78) / 0.3)) * 0.8
+        } color: { _, _ in ink }
         var y = 1.0
-        while y < H { p.rect(0, y, W, 1, Color.black.opacity(0.10)); y += 2 }
+        while y < H { p.rect(0, y, W, 1, Color.black.opacity(0.08)); y += 2 }
     }
 
     static let bayer: [Double] = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 
     @MainActor static func dissolve(_ p: inout Pix, t: Double, duration: Double) {
-        var cover = cuts.map { max(0, 1 - abs(t - $0) / 0.22) }.max() ?? 0
-        cover = max(cover, Ease.clip(t, duration - 0.7, duration))
+        var cover = cuts.map { max(0, 1 - abs(t - $0) / 0.24) }.max() ?? 0
+        cover = max(cover, Ease.clip(t, duration - 0.8, duration))
         guard cover > 0 else { return }
-        let cell = 3.0
-        for cy in 0..<Int((H / cell).rounded(.up)) {
-            for cx in 0..<Int((W / cell).rounded(.up)) {
-                let thr = bayer[(cx % 4) + (cy % 4) * 4] / 16.0
-                if cover > thr + 0.001 || cover >= 0.999 {
-                    p.rect(Double(cx) * cell, Double(cy) * cell, cell, cell, ink)
-                }
-            }
-        }
+        p.halftone(0, 0, W, H, cell: 5) { x, y in
+            let phase = (x / W) * 0.6 + (y / H) * 0.4
+            return cover * 1.7 - 0.5 * phase
+        } color: { _, _ in ink }
     }
 }
 
@@ -442,6 +533,71 @@ struct Pix {
                 guard let col = pal[ch] else { continue }
                 rect(x + Double(c) * sc, y + Double(r) * sc, sc, sc, col)
             }
+        }
+    }
+
+    /// Filled pixel-circle of diameter `d` logical pixels centred on (cx, cy).
+    func dot(_ cx: Double, _ cy: Double, _ d: Double, _ c: Color) {
+        if d < 0.8 { return }
+        if d <= 1.6 { rect(cx, cy, 1, 1, c); return }
+        let r = d / 2
+        let ri = Int(r.rounded(.up))
+        for j in -ri..<ri {
+            let yy = Double(j) + 0.5
+            let w = (r * r - yy * yy).squareRoot()
+            if w < 0.5 { continue }
+            let wi = (w * 2).rounded()
+            rect(cx - (wi / 2).rounded(), cy + Double(j), wi, 1, c)
+        }
+    }
+
+    /// Diamond-lattice halftone screen. `value` is 0…1.2 (dot size / cell); ≥1.15 fills solid.
+    func halftone(_ x0: Double, _ y0: Double, _ w: Double, _ h: Double, cell: Double,
+                  value: (Double, Double) -> Double, color: (Double, Double) -> Color) {
+        let rows = Int(h / cell), cols = Int(w / cell) + 1
+        for j in 0..<rows {
+            let y = y0 + (Double(j) + 0.5) * cell
+            for i in 0..<cols {
+                let x = x0 + (Double(i) + (j % 2 == 0 ? 0.5 : 0)) * cell
+                let v = value(x, y)
+                if v <= 0.08 { continue }
+                let c = color(x, y)
+                if v >= 1.15 { rect((x - cell / 2).rounded(), (y - cell / 2).rounded(), cell, cell, c) }
+                else { dot(x.rounded(), y.rounded(), v * cell * 1.25, c) }
+            }
+        }
+    }
+
+    /// Bitmap type whose font pixels fade from solid to halftone dots top → bottom.
+    func htText(_ str: String, _ x: Double, _ y: Double, scale: Double, _ c: Color,
+                shadow: Color? = nil, t: Double) {
+        if let sh = shadow { htGlyphs(str, x + scale, y + scale, scale, sh, t: t, wave: false) }
+        htGlyphs(str, x, y, scale, c, t: t, wave: true)
+    }
+
+    private func htGlyphs(_ str: String, _ x: Double, _ y: Double, _ sc: Double, _ c: Color,
+                          t: Double, wave: Bool) {
+        var cx = x
+        for (gi, ch) in str.enumerated() {
+            if let g = PixelFont.glyphs[ch] {
+                for (r, row) in g.enumerated() {
+                    for (col, v) in row.enumerated() where v == "X" {
+                        var lvl = 1 - 0.5 * Double(r) / 6
+                        if wave { lvl += 0.08 * sin(t * 3.2 + Double(col) * 0.9 + Double(gi) * 0.7) }
+                        let px = cx + Double(col) * sc, py = y + Double(r) * sc
+                        if sc >= 3 {
+                            if lvl > 0.76 { rect(px, py, sc, sc, c) }
+                            else if lvl > 0.5 { rect(px + 1, py, 1, sc, c); rect(px, py + 1, sc, 1, c) }
+                            else if lvl > 0.28 { rect(px, py, 2, 2, c) }
+                            else { rect(px + 1, py + 1, 1, 1, c) }
+                        } else {
+                            if lvl > 0.42 { rect(px, py, sc, sc, c) }
+                            else { rect(px, py, 1, 1, c) }
+                        }
+                    }
+                }
+            }
+            cx += 6 * sc
         }
     }
 
