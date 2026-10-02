@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 — 2026-10-02
+## 0.8.0 — 2026-10-02
 
 ### Added
 - **Samples in the Score** — `sample(path, at:, amp:, pan:, rate:, offset:, duration:)` plays any
@@ -30,6 +30,12 @@
 - `OpenEarLaunch` carries its foley in its own Score (`assets/openear-foley`) —
   `tools/openear_launch_mix.py` is gone; `check` now reports the real mix.
 - Split the four slowest type-check spots (Kinetic, KineticType, LaunchFilm).
+
+## 0.7.0 — 2026-10-02
+
+- `PixelGrid` (sample any view to an RGBA grid) and `Stylize` — 16 deterministic whole-frame
+  renderers (pixel, dither, gameBoy, ascii, halftone, cmyk, mosaic, led, engraving, crosshatch,
+  pointillism, bricks, crossStitch, lowPoly, blueprint, thermal); `StyleLab` demo reel.
 
 ## 0.6.0 — 2026-10-02
 
