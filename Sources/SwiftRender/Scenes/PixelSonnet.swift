@@ -167,7 +167,7 @@ public struct PixelSonnet: RenderScene {
 
         return Canvas { ctx, size in
             let s = size.width / W
-            var px = Pix(ctx: ctx, s: s, ox: shake.0, oy: shake.1)
+            var px = PixelCanvas(ctx: ctx, s: s, ox: shake.0, oy: shake.1)
             px.fillAll(ink)
             switch t {
             case ..<cuts[0]:  boot(&px, t)
@@ -186,7 +186,7 @@ public struct PixelSonnet: RenderScene {
 
     // MARK: scenes
 
-    @MainActor static func boot(_ p: inout Pix, _ t: Double) {
+    @MainActor static func boot(_ p: inout PixelCanvas, _ t: Double) {
         p.halftone(0, 40, W, 95, cell: 5) { x, y in
             let d = (((x - 120) / 120) * ((x - 120) / 120) + ((y - 100) / 60) * ((y - 100) / 60)).squareRoot()
             return max(0, 1.05 - d) * 0.95
@@ -205,7 +205,7 @@ public struct PixelSonnet: RenderScene {
         if t > 2.0 { p.text("1 PLAYER", 6, 126, scale: 1, lav) }
     }
 
-    @MainActor static func world(_ p: inout Pix, _ t: Double) {
+    @MainActor static func world(_ p: inout PixelCanvas, _ t: Double) {
         sky(&p, t)
         let scroll = t * 50
         hills(&p, offset: t * 8, base: 74, amp: 10, color: plum, seed: 0.0)
@@ -217,7 +217,7 @@ public struct PixelSonnet: RenderScene {
         speech(&p, ["I WRITE CODE.", "I WRITE POEMS."], t: t, start: 3.1, end: 5.6, x: 92, y: 28)
     }
 
-    @MainActor static func boss(_ p: inout Pix, _ t: Double) {
+    @MainActor static func boss(_ p: inout PixelCanvas, _ t: Double) {
         sky(&p, t + 3.7)
         hills(&p, offset: 30 + t * 8, base: 74, amp: 10, color: plum, seed: 0.0)
         hills(&p, offset: 60 + t * 20, base: 92, amp: 7, color: indigo, seed: 2.0)
@@ -258,7 +258,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func skills(_ p: inout Pix, _ t: Double) {
+    @MainActor static func skills(_ p: inout PixelCanvas, _ t: Double) {
         p.fillAll(indigo)
         p.halftone(0, 0, W, H, cell: 6) { _, y in (y / H) * 0.95 } color: { _, _ in plum }
         stars(&p, t, count: 40, maxY: 135)
@@ -285,7 +285,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func credits(_ p: inout Pix, _ t: Double) {
+    @MainActor static func credits(_ p: inout PixelCanvas, _ t: Double) {
         sky(&p, t * 0.5)
         hills(&p, offset: 12, base: 74, amp: 10, color: plum, seed: 0.0)
         hills(&p, offset: 40, base: 92, amp: 7, color: indigo, seed: 2.0)
@@ -304,7 +304,7 @@ public struct PixelSonnet: RenderScene {
         return x - floor(x)
     }
 
-    @MainActor static func sky(_ p: inout Pix, _ t: Double) {
+    @MainActor static func sky(_ p: inout PixelCanvas, _ t: Double) {
         let ramp: [Color] = [indigo, plum, red, pink, orange]
         let cell = 2.0
         let rows = Int(groundY / cell)
@@ -339,7 +339,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func stars(_ p: inout Pix, _ t: Double, count: Int, maxY: Double) {
+    @MainActor static func stars(_ p: inout PixelCanvas, _ t: Double, count: Int, maxY: Double) {
         for i in 0..<count {
             let x = (h(i) * W).rounded(), y = (h(i + 100) * maxY).rounded()
             if (Int(t * 2.5) + i) % 5 == 0 { continue }
@@ -348,7 +348,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func hills(_ p: inout Pix, offset: Double, base: Double, amp: Double,
+    @MainActor static func hills(_ p: inout PixelCanvas, offset: Double, base: Double, amp: Double,
                                  color: Color, seed: Double) {
         for x in stride(from: 0.0, to: W, by: 1) {
             let u = x + offset
@@ -358,7 +358,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func ground(_ p: inout Pix, _ scroll: Double) {
+    @MainActor static func ground(_ p: inout PixelCanvas, _ scroll: Double) {
         p.rect(0, groundY, W, H - groundY, green)
         p.rect(0, groundY + 3, W, H - groundY - 3, Color(red: 0.0, green: 0.53, blue: 0.32))
         p.rect(0, groundY + 12, W, H - groundY - 12, Color(red: 0.67, green: 0.32, blue: 0.21))
@@ -400,7 +400,7 @@ public struct PixelSonnet: RenderScene {
         "K": ink, "P": peach, "C": blue, "Y": yellow, "R": red,
     ]
 
-    @MainActor static func hero(_ p: inout Pix, _ x: Double, _ y: Double, t: Double,
+    @MainActor static func hero(_ p: inout PixelCanvas, _ x: Double, _ y: Double, t: Double,
                                 walking: Bool, scale: Double) {
         let phase = walking ? Int(t / 0.14) % 2 : 0
         let bob = walking && phase == 1 ? -1.0 : 0
@@ -427,7 +427,7 @@ public struct PixelSonnet: RenderScene {
         "..K....K..",
     ]
 
-    @MainActor static func bug(_ p: inout Pix, _ x: Double, _ y: Double, white: Bool, t: Double) {
+    @MainActor static func bug(_ p: inout PixelCanvas, _ x: Double, _ y: Double, white: Bool, t: Double) {
         let pal: [Character: Color] = white
             ? ["K": PixelSonnet.white, "R": PixelSonnet.white, "W": ink]
             : ["K": ink, "R": red, "W": PixelSonnet.white]
@@ -435,7 +435,7 @@ public struct PixelSonnet: RenderScene {
         p.sprite(bugRows, pal, x, y + wig, 3)
     }
 
-    @MainActor static func explosion(_ p: inout Pix, _ cx: Double, _ cy: Double, t: Double) {
+    @MainActor static func explosion(_ p: inout PixelCanvas, _ cx: Double, _ cy: Double, t: Double) {
         if t < 0.06 { p.rect(cx - 18, cy - 12, 36, 24, white); return }
         if t < 0.5 {
             let rad = t * 120
@@ -457,7 +457,7 @@ public struct PixelSonnet: RenderScene {
         }
     }
 
-    @MainActor static func speech(_ p: inout Pix, _ lines: [String], t: Double,
+    @MainActor static func speech(_ p: inout PixelCanvas, _ lines: [String], t: Double,
                                   start: Double, end: Double, x: Double, y: Double) {
         guard t >= start, t < end else { return }
         let total = lines.joined().count
@@ -480,7 +480,7 @@ public struct PixelSonnet: RenderScene {
 
     // MARK: post
 
-    @MainActor static func scanlines(_ p: inout Pix) {
+    @MainActor static func scanlines(_ p: inout PixelCanvas) {
         p.halftone(0, 0, W, H, cell: 4) { x, y in
             let dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2)
             let r = ((dx * dx + dy * dy) / 2).squareRoot()
@@ -492,7 +492,7 @@ public struct PixelSonnet: RenderScene {
 
     static let bayer: [Double] = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 
-    @MainActor static func dissolve(_ p: inout Pix, t: Double, duration: Double) {
+    @MainActor static func dissolve(_ p: inout PixelCanvas, t: Double, duration: Double) {
         var cover = cuts.map { max(0, 1 - abs(t - $0) / 0.24) }.max() ?? 0
         cover = max(cover, Ease.clip(t, duration - 0.8, duration))
         guard cover > 0 else { return }
@@ -501,174 +501,4 @@ public struct PixelSonnet: RenderScene {
             return cover * 1.7 - 0.5 * phase
         } color: { _, _ in ink }
     }
-}
-
-// MARK: - Pixel canvas helper
-
-struct Pix {
-    let ctx: GraphicsContext
-    let s: Double
-    var ox = 0.0, oy = 0.0
-
-    func fillAll(_ c: Color) { rawRect(0, 0, 240 * s, 135 * s, c) }
-
-    func rawRect(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ c: Color) {
-        ctx.fill(Path(CGRect(x: x, y: y, width: w, height: h)), with: .color(c))
-    }
-
-    func rect(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ c: Color) {
-        let x0 = ((x + ox) * s).rounded(), y0 = ((y + oy) * s).rounded()
-        let x1 = ((x + ox + w) * s).rounded(), y1 = ((y + oy + h) * s).rounded()
-        ctx.fill(Path(CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)), with: .color(c))
-    }
-
-    func frame(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ c: Color) {
-        rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c)
-        rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c)
-    }
-
-    func sprite(_ rows: [String], _ pal: [Character: Color], _ x: Double, _ y: Double, _ sc: Double) {
-        for (r, row) in rows.enumerated() {
-            for (c, ch) in row.enumerated() {
-                guard let col = pal[ch] else { continue }
-                rect(x + Double(c) * sc, y + Double(r) * sc, sc, sc, col)
-            }
-        }
-    }
-
-    /// Filled pixel-circle of diameter `d` logical pixels centred on (cx, cy).
-    func dot(_ cx: Double, _ cy: Double, _ d: Double, _ c: Color) {
-        if d < 0.8 { return }
-        if d <= 1.6 { rect(cx, cy, 1, 1, c); return }
-        let r = d / 2
-        let ri = Int(r.rounded(.up))
-        for j in -ri..<ri {
-            let yy = Double(j) + 0.5
-            let w = (r * r - yy * yy).squareRoot()
-            if w < 0.5 { continue }
-            let wi = (w * 2).rounded()
-            rect(cx - (wi / 2).rounded(), cy + Double(j), wi, 1, c)
-        }
-    }
-
-    /// Diamond-lattice halftone screen. `value` is 0…1.2 (dot size / cell); ≥1.15 fills solid.
-    func halftone(_ x0: Double, _ y0: Double, _ w: Double, _ h: Double, cell: Double,
-                  value: (Double, Double) -> Double, color: (Double, Double) -> Color) {
-        let rows = Int(h / cell), cols = Int(w / cell) + 1
-        for j in 0..<rows {
-            let y = y0 + (Double(j) + 0.5) * cell
-            for i in 0..<cols {
-                let x = x0 + (Double(i) + (j % 2 == 0 ? 0.5 : 0)) * cell
-                let v = value(x, y)
-                if v <= 0.08 { continue }
-                let c = color(x, y)
-                if v >= 1.15 { rect((x - cell / 2).rounded(), (y - cell / 2).rounded(), cell, cell, c) }
-                else { dot(x.rounded(), y.rounded(), v * cell * 1.25, c) }
-            }
-        }
-    }
-
-    /// Bitmap type whose font pixels fade from solid to halftone dots top → bottom.
-    func htText(_ str: String, _ x: Double, _ y: Double, scale: Double, _ c: Color,
-                shadow: Color? = nil, t: Double) {
-        if let sh = shadow { htGlyphs(str, x + scale, y + scale, scale, sh, t: t, wave: false) }
-        htGlyphs(str, x, y, scale, c, t: t, wave: true)
-    }
-
-    private func htGlyphs(_ str: String, _ x: Double, _ y: Double, _ sc: Double, _ c: Color,
-                          t: Double, wave: Bool) {
-        var cx = x
-        for (gi, ch) in str.enumerated() {
-            if let g = PixelFont.glyphs[ch] {
-                for (r, row) in g.enumerated() {
-                    for (col, v) in row.enumerated() where v == "X" {
-                        var lvl = 1 - 0.5 * Double(r) / 6
-                        if wave { lvl += 0.08 * sin(t * 3.2 + Double(col) * 0.9 + Double(gi) * 0.7) }
-                        let px = cx + Double(col) * sc, py = y + Double(r) * sc
-                        if sc >= 3 {
-                            if lvl > 0.76 { rect(px, py, sc, sc, c) }
-                            else if lvl > 0.5 { rect(px + 1, py, 1, sc, c); rect(px, py + 1, sc, 1, c) }
-                            else if lvl > 0.28 { rect(px, py, 2, 2, c) }
-                            else { rect(px + 1, py + 1, 1, 1, c) }
-                        } else {
-                            if lvl > 0.42 { rect(px, py, sc, sc, c) }
-                            else { rect(px, py, 1, 1, c) }
-                        }
-                    }
-                }
-            }
-            cx += 6 * sc
-        }
-    }
-
-    func text(_ str: String, _ x: Double, _ y: Double, scale: Double, _ c: Color, shadow: Color? = nil) {
-        if let sh = shadow { glyphs(str, x + scale, y + scale, scale, sh) }
-        glyphs(str, x, y, scale, c)
-    }
-
-    private func glyphs(_ str: String, _ x: Double, _ y: Double, _ sc: Double, _ c: Color) {
-        var cx = x
-        for ch in str {
-            if let g = PixelFont.glyphs[ch] {
-                for (r, row) in g.enumerated() {
-                    for (col, v) in row.enumerated() where v == "X" {
-                        rect(cx + Double(col) * sc, y + Double(r) * sc, sc, sc, c)
-                    }
-                }
-            }
-            cx += 6 * sc
-        }
-    }
-}
-
-enum PixelFont {
-    static let glyphs: [Character: [String]] = {
-        let raw: [Character: String] = [
-            "A": ".XXX./X...X/X...X/XXXXX/X...X/X...X/X...X",
-            "B": "XXXX./X...X/X...X/XXXX./X...X/X...X/XXXX.",
-            "C": ".XXXX/X..../X..../X..../X..../X..../.XXXX",
-            "D": "XXXX./X...X/X...X/X...X/X...X/X...X/XXXX.",
-            "E": "XXXXX/X..../X..../XXXX./X..../X..../XXXXX",
-            "F": "XXXXX/X..../X..../XXXX./X..../X..../X....",
-            "G": ".XXXX/X..../X..../X.XXX/X...X/X...X/.XXXX",
-            "H": "X...X/X...X/X...X/XXXXX/X...X/X...X/X...X",
-            "I": "XXXXX/..X../..X../..X../..X../..X../XXXXX",
-            "J": "..XXX/...X./...X./...X./...X./X..X./.XX..",
-            "K": "X...X/X..X./X.X../XX.../X.X../X..X./X...X",
-            "L": "X..../X..../X..../X..../X..../X..../XXXXX",
-            "M": "X...X/XX.XX/X.X.X/X.X.X/X...X/X...X/X...X",
-            "N": "X...X/XX..X/X.X.X/X..XX/X...X/X...X/X...X",
-            "O": ".XXX./X...X/X...X/X...X/X...X/X...X/.XXX.",
-            "P": "XXXX./X...X/X...X/XXXX./X..../X..../X....",
-            "Q": ".XXX./X...X/X...X/X...X/X.X.X/X..X./.XX.X",
-            "R": "XXXX./X...X/X...X/XXXX./X.X../X..X./X...X",
-            "S": ".XXXX/X..../X..../.XXX./....X/....X/XXXX.",
-            "T": "XXXXX/..X../..X../..X../..X../..X../..X..",
-            "U": "X...X/X...X/X...X/X...X/X...X/X...X/.XXX.",
-            "V": "X...X/X...X/X...X/X...X/X...X/.X.X./..X..",
-            "W": "X...X/X...X/X...X/X.X.X/X.X.X/XX.XX/X...X",
-            "X": "X...X/X...X/.X.X./..X../.X.X./X...X/X...X",
-            "Y": "X...X/X...X/.X.X./..X../..X../..X../..X..",
-            "Z": "XXXXX/....X/...X./..X../.X.../X..../XXXXX",
-            "0": ".XXX./X...X/X..XX/X.X.X/XX..X/X...X/.XXX.",
-            "1": "..X../.XX../..X../..X../..X../..X../.XXX.",
-            "2": ".XXX./X...X/....X/...X./..X../.X.../XXXXX",
-            "3": "XXXX./....X/....X/.XXX./....X/....X/XXXX.",
-            "4": "...X./..XX./.X.X./X..X./XXXXX/...X./...X.",
-            "5": "XXXXX/X..../XXXX./....X/....X/X...X/.XXX.",
-            "6": ".XXX./X..../X..../XXXX./X...X/X...X/.XXX.",
-            "7": "XXXXX/....X/...X./..X../.X.../.X.../.X...",
-            "8": ".XXX./X...X/X...X/.XXX./X...X/X...X/.XXX.",
-            "9": ".XXX./X...X/X...X/.XXXX/....X/....X/.XXX.",
-            ".": "...../...../...../...../...../.XX../.XX..",
-            ",": "...../...../...../...../.XX../..X../.X...",
-            "!": "..X../..X../..X../..X../..X../...../..X..",
-            "?": ".XXX./X...X/....X/...X./..X../...../..X..",
-            ":": "...../.XX../.XX../...../.XX../.XX../.....",
-            "-": "...../...../...../XXXXX/...../...../.....",
-            "+": "...../..X../..X../XXXXX/..X../..X../.....",
-            "'": "..X../..X../.X.../...../...../...../.....",
-        ]
-        return raw.mapValues { $0.split(separator: "/").map(String.init) }
-    }()
 }

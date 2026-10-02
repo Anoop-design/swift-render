@@ -95,7 +95,7 @@ Rectangle()
     )
 ```
 
-Available shaders: `rimGlow`, `foilHolographic`, `plasmaField`, `chromaticAberration`, `audioBars`, `caustics`. Args documented in `Sources/SwiftRender/Shaders/Cookbook.metal`.
+Available shaders (23): `rimGlow`, `foilHolographic`, `plasmaField`, `chromaticAberration`, `audioBars`, `caustics`, `liquidMetal`, `kaleidoscope`, `truchet`, `galaxy`, `neonGrid`, `smokeFlow`, `warpTunnel`, `metaballs`, `inkFlow`, `interference`, `voronoiInk`, `monoTunnel`, … Exact args: `grep -A8 'half4 name(' Sources/SwiftRender/Shaders/*.metal`.
 
 ## Writing a new shader
 
@@ -115,7 +115,7 @@ half4 yourShader(
 }
 ```
 
-Then recompile the metallib (see CONTRIBUTING.md).
+`swift build` recompiles it (needs the Metal compiler: `xcodebuild -downloadComponent MetalToolchain`). After a successful compile, refresh the fallback: `cp .build/release/SwiftRender_SwiftRender.bundle/default.metallib Sources/SwiftRender/Shaders/prebuilt.metallib`.
 
 ## Common pitfalls
 
@@ -137,15 +137,23 @@ swift run swift-render render <Scene>          # render with defaults
   --audio <path>          # mux audio into output
 
 swift run swift-render list                    # show registered scenes
+swift run swift-render new <Scene>             # scaffold an auto-registered scene
+swift run swift-render check <Scene>           # contact sheet + audio report (review step)
 ```
 
-## What an agent should produce when asked to "make a scene"
+## The loop an agent should follow when asked to "make a video"
 
-1. A single `.swift` file containing the scene struct
-2. The exact `sceneRunners` entry to add to `main.swift`
-3. The CLI command to render it
+```bash
+swift run swift-render new MyFilm            # scaffold (auto-registered — never edit main.swift)
+# … write the scene …
+swift run swift-render check MyFilm          # READ out/check-MyFilm.png and the printed report
+swift run swift-render frame MyFilm --at 2.1,5.4   # zoom in on shots the sheet flagged
+swift run swift-render render MyFilm --out out/myfilm.mp4
+```
 
-Nothing else needed. The Recorder, PostFX, font registration, and encoding are all handled.
+1. **Never skip `check`.** Scenes written blind look generic; the contact sheet is where they get good. Iterate on it 2–3 times before the full render.
+2. **You can't hear the mix — read the report.** `check` prints peak/RMS, a loudness lane, silences, clipping and an event histogram; a "mostly percussion loops" warning means add harmony (`chordPad`, `arpeggio`, `melody`).
+3. Deliver the one `.swift` file and the render command. Recorder, PostFX, fonts, encoding, registration are all handled.
 
 ## Timeline (sequencing without segment math)
 
@@ -219,9 +227,22 @@ public static func soundtrack(duration: Double) -> Score? {
     }
 }
 ```
-Events: kick/clap/hat/crash/boom/bass/riser/drone/whoosh (at:). Patterns:
-fourOnFloor, hatSixteenths, bassline(notes:from:to:), every(interval:...).
+Events: kick/clap/hat/crash/boom/bass/riser/drone/whoosh/laser (at:).
+Melodic: pluck/bell/pad/chip/triBass(note, at:, amp:, duration:, pan:).
+Patterns: fourOnFloor, hatSixteenths, bassline(notes:from:to:), every(interval:...).
 Render normally — the score synthesizes and muxes automatically.
+
+Music theory — write harmony, not just drums (repetitive drum loops are the #1 "sounds odd" complaint):
+
+```swift
+chordPad(.minor7(.a3), at: 0, duration: bar * 2)                // sustained, stereo-spread
+strum(.major7(.f3), at: bar * 2)                                 // piano/guitar stab
+arpeggio(.minor9(.a4), from: bar, to: bar * 3, step: beat / 4, pattern: .upDown)
+melody([(0, .e5), (1, .g5), (1.5, .a5)], start: bar * 4, bpm: 110, instrument: .bell)
+Scale.minorPentatonic.degree(i, root: .a4)                       // pick notes procedurally
+Note.midi(64)  Note.a3  .transposed(12)
+```
+Change the chord every bar or two and vary phrases per section — a looped bar reads as a loop.
 
 ## Fast iteration
 
@@ -232,7 +253,35 @@ swift run swift-render render MyScene --no-postfx                    # raw frame
 ```
 
 If a scene applies its own `PostFX`, declare `static var ownsPostFX: Bool { true }`
-or the recorder's global pass doubles it.
+or the recorder's global pass doubles it. Pixel-art and dithered looks should own it
+too (grain over a dither reads as noise).
 
-Editing a `.metal` file just works — shaders recompile automatically on
-`swift build` (SwiftPM build plugin).
+Editing a `.metal` file recompiles automatically on `swift build` — **if** the Metal
+compiler is installed. Without it the build uses `Shaders/prebuilt.metallib` and
+renders print a loud stale-shader warning; for a new look that must work everywhere,
+prefer SwiftUI/Canvas + the CPU `Dither` component over a new shader.
+
+## Look-dev components
+
+```swift
+// 1-bit / N-tone print: author in grayscale, dither the whole frame
+Dither.render(frameView, size: CGSize(width: 1920, height: 1080), cell: 3,
+              palette: Dither.noir, contrast: 1.3, bias: 0.07)
+
+// pixel art on a logical grid (240×135 → ×8 = 1080p)
+Canvas { ctx, size in
+    var px = PixelCanvas(ctx: ctx, s: size.width / 240)
+    px.fillAll(.black)
+    px.text("PRESS START", 87, 120, scale: 1, .white)
+    px.htText("TITLE", 60, 20, scale: 2, .yellow, shadow: .purple, t: t)   // halftone type
+    px.halftone(0, 0, 240, 135, cell: 5) { x, y in y / 135 } color: { _, _ in .purple }
+}
+```
+
+## Gotchas learned the hard way
+
+- **Thin strokes vanish** when anything renders below 1:1 (dither at 1/3, contact thumbs): use ≥5 px lines for webs, rain, outlines.
+- **Fading by `.opacity` on the whole scene** fades to black only because PostFX lays an opaque base; with `--no-postfx` put your own `Color.black` underneath.
+- **Text inside a dithered/pixelated layer gets crunchy** — put subtitles in a crisp overlay above `Dither.render`.
+- **Timeline transitions overlap**: the timeline ends earlier than the sum of clip lengths. Give the last clip `duration` and let it be trimmed.
+- **Contact sheets sample shot midpoints**; if a frame you care about sits exactly on a cut, use `frame --at`.

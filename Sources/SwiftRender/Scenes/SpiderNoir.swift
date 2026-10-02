@@ -6,8 +6,8 @@ import SwiftUI
 ///
 /// The scene is authored in grayscale (gradients, rain, a procedurally walked
 /// spider with two-bone IK legs, a web that spins itself) and the whole frame is
-/// pushed through `ditherNoir` (Dither.metal): an 8x8 Bayer threshold to
-/// charcoal + cream. Subtitles sit crisp on top, in the letterbox.
+/// pushed through `Dither.render` (Components/Dither.swift): an 8x8 Bayer
+/// threshold to charcoal + cream. Subtitles sit crisp on top, in the letterbox.
 ///
 /// 80 BPM, seven 3-second bars:
 ///   0 city + rain   1 descent   2 close-up   3 web spins   4 the catch
@@ -145,51 +145,12 @@ public struct SpiderNoir: RenderScene {
         }
 
         return ZStack {
-            dithered(frame)
+            Dither.render(frame, size: CGSize(width: W, height: H), cell: 3,
+                          palette: [charcoal, cream], contrast: 1.3, bias: 0.07)
             subtitles(t)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(charcoal)
-    }
-
-    // MARK: dither — render the grayscale frame small, Bayer-threshold it, upscale nearest
-
-    static let bayer8: [Float] = (0..<64).map { i in
-        let x = i % 8, y = i / 8, xc = x ^ y
-        let v = ((y & 1) << 5) | ((xc & 1) << 4) | ((y & 2) << 2) | ((xc & 2) << 1) | ((y & 4) >> 1) | ((xc & 4) >> 2)
-        return (Float(v) + 0.5) / 64
-    }
-
-    @MainActor static func dithered<V: View>(_ content: V, cell: Int = 3) -> AnyView {
-        let renderer = ImageRenderer(content: content.frame(width: W, height: H))
-        renderer.scale = 1.0 / Double(cell)
-        guard let cg = renderer.cgImage else { return AnyView(Color.black) }
-        let w = cg.width, hgt = cg.height
-        var px = [UInt8](repeating: 0, count: w * hgt * 4)
-        let space = CGColorSpaceCreateDeviceRGB()
-        let info = CGImageAlphaInfo.premultipliedLast.rawValue
-        px.withUnsafeMutableBytes { buf in
-            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: hgt, bitsPerComponent: 8,
-                                      bytesPerRow: w * 4, space: space, bitmapInfo: info) else { return }
-            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: hgt))
-            let dark: (UInt8, UInt8, UInt8) = (26, 26, 28), light: (UInt8, UInt8, UInt8) = (240, 230, 204)
-            for y in 0..<hgt {
-                for x in 0..<w {
-                    let i = (y * w + x) * 4
-                    let lum = (0.299 * Float(buf[i]) + 0.587 * Float(buf[i + 1]) + 0.114 * Float(buf[i + 2])) / 255
-                    let v = min(1, max(0, (lum - 0.5) * 1.3 + 0.5 + 0.07))
-                    let c = v > bayer8[(y & 7) * 8 + (x & 7)] ? light : dark
-                    buf[i] = c.0; buf[i + 1] = c.1; buf[i + 2] = c.2; buf[i + 3] = 255
-                }
-            }
-        }
-        var out: CGImage?
-        px.withUnsafeMutableBytes { buf in
-            out = CGContext(data: buf.baseAddress, width: w, height: hgt, bitsPerComponent: 8,
-                            bytesPerRow: w * 4, space: space, bitmapInfo: info)?.makeImage()
-        }
-        guard let img = out else { return AnyView(Color.black) }
-        return AnyView(Image(decorative: img, scale: 1).interpolation(.none).resizable().frame(width: W, height: H))
     }
 
     // MARK: overlays

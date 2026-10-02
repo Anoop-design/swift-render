@@ -73,12 +73,16 @@ public struct Hello: RenderScene {
 }
 ```
 
-Register it in `Sources/SwiftRenderCLI/main.swift`, then:
+Save it anywhere in `Sources/SwiftRender/Scenes/` — scenes are **auto-registered** at build time (no dictionary to edit). Or let the CLI scaffold one with a timeline and a score already wired:
 
 ```bash
+swift run swift-render new Hello                       # scaffold Sources/SwiftRender/Scenes/Hello.swift
+swift run swift-render check Hello                     # contact sheet + blank-frame scan + audio report
+swift run swift-render render Hello --preview --open   # half-res 30fps, opens when done
 swift run swift-render render Hello --out out/hello.mp4
-swift run swift-render frame Hello --at 1.2 --out out/check.png   # preview one frame in ~1s
 ```
+
+`check` is the review step: it writes `out/check-Hello.png` (a 4×4 contact sheet sampled at shot midpoints) and a text report — duration, ms/frame, any blank frames, peak/RMS, a loudness lane, silences, clipping and an event histogram. It's built so an agent that can *see* images but can't *hear* audio can still review its own work.
 
 ### Sequencing — `Timeline`
 
@@ -130,10 +134,13 @@ Pipe in JSON per record and render a thousand personalized variants — the AI/d
 ## Sound, in Swift
 
 Scenes declare their own soundtrack — same constants drive the cuts and the
-hits, so audio/video sync is structural, not manual. The synth (kicks, claps,
-hats, crashes, sub bass, risers, 808 booms, drones, whooshes — with two-bus
-sidechain pumping) is pure Swift, deterministic, and renders a minute of audio
-in ~0.1s:
+hits, so audio/video sync is structural, not manual. The synth is pure Swift,
+deterministic, and renders a minute of audio in ~0.1s:
+
+- **Drums & FX:** kick, clap, hat, crash, 808 boom, riser, whoosh, laser — two-bus sidechain pumping
+- **Melodic voices:** `pluck` (kalimba-ish, with echo), `bell` (FM), `pad` (detuned, slow), `chip` (25% pulse), `triBass` (round triangle), `bass`, `drone`
+- **Music theory:** note names (`.a3`, `.c5`, `Note.midi(64)`), `Chord.minor7(.a3)` & friends, `Scale.minorPentatonic.degree(i, root:)`
+- **Phrases:** `chordPad`, `strum`, `arpeggio(…, pattern: .upDown)`, `melody([(beat, note)], start:, bpm:)`
 
 ```swift
 public static func soundtrack(duration: Double) -> Score? {
@@ -144,6 +151,9 @@ public static func soundtrack(duration: Double) -> Score? {
         crashes(at: chapters)                      // the SAME array as the Timeline
         riser(at: 33.6, duration: 2.4)
         boom(at: 36.0)
+        chordPad(.minor9(.a3), at: 0, duration: 4.8)                 // harmony, not just drums
+        arpeggio(.minor7(.a4), from: 2.4, to: 9.6, step: 0.15, pattern: .upDown)
+        melody([(0, .e5), (1, .g5), (2.5, .a5)], start: 9.6, bpm: 100, instrument: .bell)
     }
 }
 ```
@@ -170,7 +180,14 @@ Eighteen ship in three packs — `rimGlow`, `foilHolographic`, `plasmaField`, `c
 
 https://github.com/skyblanket/swift-render/raw/main/docs/assets/shader-gallery.mp4
 
-(If a `.metal` file is newer than the compiled metallib, the CLI warns you loudly — no silently-stale shaders.)
+Recent Xcodes ship the Metal compiler as a separate download. Without it the build **doesn't fail**: the plugin falls back to the checked-in `Shaders/prebuilt.metallib`, and if any `.metal` file is newer than the metallib in use, every render prints a loud warning with the fix (`xcodebuild -downloadComponent MetalToolchain`) — no silently-stale shaders.
+
+## Look-dev components
+
+Reusable building blocks extracted from real scenes:
+
+- **`Dither.render(view, size:, cell:, palette:)`** — whole-frame ordered (Bayer 8×8) dither to any palette, CPU-side, no toolchain needed. Author in grayscale, get a 1-bit print (`Dither.noir`) or a 4-tone ramp (`Dither.gameBoy`). See `SpiderNoir`.
+- **`PixelCanvas`** — draw on a logical low-res grid inside `Canvas`: snapped rects, sprites from strings, a 5×7 bitmap font (`PixelFont`), halftone dot screens, halftone type. See `PixelSonnet`.
 
 ## Twelve aesthetics, one engine
 
@@ -203,10 +220,14 @@ https://github.com/skyblanket/swift-render/raw/main/docs/assets/kinetic.mp4
 ## CLI
 
 ```text
+swift-render new    <Scene> [--kind audio]               scaffold an auto-registered scene
+swift-render check  <Scene>                              contact sheet + frame scan + audio report
 swift-render render <Scene> [--duration s] [--fps n] [--aspect 16:9|9:16|1:1]
                             [--audio file] [--props file.json] [--range a:b]
-                            [--no-postfx] [--out path]
-swift-render frame  <Scene> --at <t> [--out path.png]    fast single-frame preview
+                            [--preview] [--open] [--no-postfx] [--out path]
+swift-render frame  <Scene> --at <t>[,t2,…] [--out path.png]   one or several frames
+swift-render contact <Scene> [--cols n] [--rows n]       grid contact sheet
+swift-render audio  <Scene> --out score.wav              export the scene's Score
 swift-render props  <Scene>                              print default props JSON
 swift-render list                                        all registered scenes
 ```
@@ -223,7 +244,7 @@ Determinism isn't a vibe — `swift test` includes a render-twice-byte-identical
 ## Use it as a library
 
 ```swift
-.package(url: "https://github.com/skyblanket/swift-render", from: "0.5.0")
+.package(url: "https://github.com/skyblanket/swift-render", from: "0.6.0")
 ```
 
 ```swift
@@ -240,13 +261,13 @@ try await recorder.render(to: url, duration: 5) { t in MyView(t: t) }
 ## Requirements
 
 - macOS 14+ (Apple silicon recommended; that's where the speed numbers come from)
-- Xcode 15+ toolchain (`xcrun metal` needed only when editing shaders)
+- Xcode 15+ toolchain. The Metal compiler is only needed when **editing** shaders (`xcodebuild -downloadComponent MetalToolchain`); a prebuilt metallib covers everything else
 - ffmpeg optional — handy for GIF/thumbnail post-processing
 
 ## Roadmap
 
-- SwiftPM build plugin for automatic metallib compilation
-- `contact <Scene>` grid-sheet export · transparent ProRes 4444 · 10-bit masters
+- Transparent ProRes 4444 · 10-bit masters
+- GPU dither/halftone post pass (the CPU `Dither` is the toolchain-free fallback)
 - Audio-reactive FFT improvements (configurable bands, onset detection)
 - Linux? No — this is proudly the native-Apple lane.
 

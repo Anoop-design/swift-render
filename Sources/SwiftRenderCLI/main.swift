@@ -1,57 +1,17 @@
+import AppKit
 import AVFoundation
 import Foundation
 import SwiftRender
 import SwiftUI
 
-let swiftRenderVersion = "0.5.0"
+let swiftRenderVersion = "0.6.0"
 
 // MARK: - Scene registry
+//
+// Generated at build time by SceneRegistryPlugin: every `public struct X` in the
+// SwiftRender target that conforms to a scene protocol is registered as "X".
 
-let sceneRunners: [String: SceneRunner] = [
-    "JETRAYIntercept":  SceneRunner(JETRAYIntercept.self),
-    "JETRAYBW":         SceneRunner(JETRAYBW.self),
-    "JETRAYChase":      SceneRunner(JETRAYChase.self),
-    "JETRAYGround":     SceneRunner(JETRAYGround.self),
-    // Generic scenes (Cookbook + library — public API examples)
-    "TextReveal":       SceneRunner(TextReveal.self),
-    "Kinetic":          SceneRunner(Kinetic.self),
-    "KineticType":      SceneRunner(KineticType.self),
-    "JustRenderIt":     SceneRunner(JustRenderIt.self),
-    "AudioBars":        SceneRunner(AudioBars.self),
-    "TimelineDemo":     SceneRunner(TimelineDemo.self),
-    "LaunchFilm":       SceneRunner(LaunchFilm.self),
-    "LaunchFilm2":      SceneRunner(LaunchFilm2.self),
-    "RepoPromo":        SceneRunner(RepoPromo.self),
-    "SwarmRTPromo":     SceneRunner(SwarmRTPromo.self),
-    "SwarmRTFilm":      SceneRunner(SwarmRTFilm.self),
-    "FilmScore62":      SceneRunner(FilmScore62.self),
-    "FilmScoreSC":      SceneRunner(FilmScoreSC.self),
-    "StyleReel":        SceneRunner(StyleReel.self),
-    "StyleReelVertical": SceneRunner(StyleReelVertical.self),
-    "CardStack":        SceneRunner(CardStack.self),
-    "ParticleField":    SceneRunner(ParticleField.self),
-    "ShaderShowcase":   SceneRunner(ShaderShowcase.self),
-    "ShaderGallery":    SceneRunner(ShaderGallery.self),
-    "FutureOfTheFirm":  SceneRunner(FutureOfTheFirm.self),
-    "Sizzle":           SceneRunner(Sizzle.self),
-    "PixelSonnet":      SceneRunner(PixelSonnet.self),
-    "SpiderNoir":       SceneRunner(SpiderNoir.self),
-    "BillionDollars":   SceneRunner(BillionDollars.self),
-    "OriginsOfWokeness": SceneRunner(OriginsOfWokeness.self),
-    "AutonomousWar":     SceneRunner(AutonomousWar.self),
-
-    // OpenEar — real-world consumer scenes living inside the repo
-    "LogoReveal":       SceneRunner(LogoReveal.self),
-    "NotchRecording":   SceneRunner(NotchRecording.self),
-    "WaveformDance":    SceneRunner(WaveformDance.self),
-    "VinylSpin":        SceneRunner(VinylSpin.self),
-    "DahliaProcessing": SceneRunner(DahliaProcessing.self),
-    "WelcomeSplash":    SceneRunner(WelcomeSplash.self),
-    "LaunchReel":       SceneRunner(LaunchReel.self),
-    "IGHook":           SceneRunner(IGHook.self),
-    "IGOutro":          SceneRunner(IGOutro.self),
-    "BugTest":          SceneRunner(BugTest.self),
-]
+let sceneRunners: [String: SceneRunner] = generatedSceneRunners
 
 enum AudioSource {
     case none
@@ -236,7 +196,10 @@ struct CLIArgs {
     var scale: CGFloat = 1.0
     var out: String = "out/render.mp4"
     var audio: String? = nil
-    var at: Double = 0          // `frame` subcommand: timestamp
+    var at: [Double] = [0]      // `frame` subcommand: one or more timestamps
+    var preview = false
+    var open = false
+    var kind = "render"         // `new`: render | audio
     var rangeStart: Double? = nil
     var rangeEnd: Double? = nil
     var props: String? = nil
@@ -285,7 +248,12 @@ func parseArgs(_ argv: [String]) -> CLIArgs {
         case "--scale":    args.scale = CGFloat(Double(v) ?? Double(args.scale)); i += 2
         case "--out":      args.out = v; i += 2
         case "--audio":    args.audio = v; i += 2
-        case "--at":       args.at = Double(v) ?? 0; i += 2
+        case "--at":
+            let ts = v.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            args.at = ts.isEmpty ? [0] : ts; i += 2
+        case "--preview":  args.preview = true; i += 1
+        case "--open":     args.open = true; i += 1
+        case "--kind":     args.kind = v; i += 2
         case "--props":    args.props = v; i += 2
         case "--no-postfx": args.postFX = false; i += 1
         case "--cols":     args.cols = max(1, Int(v) ?? 5); i += 2
@@ -308,8 +276,10 @@ func printUsage() {
     swift-render — programmatic motion graphics in Swift
 
     USAGE:
+      swift-render new <Scene> [--kind audio]  Scaffold Sources/SwiftRender/Scenes/<Scene>.swift
+      swift-render check <Scene>            Contact sheet + blank-frame scan + audio report
       swift-render render <Scene> [opts]    Render a scene to MP4
-      swift-render frame <Scene> --at <t>   Render one frame to PNG (fast preview)
+      swift-render frame <Scene> --at <t>   Render frame(s) to PNG; --at 1,2.5,4 for several
       swift-render props <Scene>            Print a scene's default props as JSON
       swift-render contact <Scene>           Render a grid contact sheet to PNG
       swift-render audio <Scene> --out x.wav Export a scene's Score as WAV
@@ -331,6 +301,13 @@ func printUsage() {
       --props <file.json>      JSON props for parameterized scenes
       --cols/--rows <n>        Contact sheet grid (default 5×3)
       --no-postfx              Disable the global grain+vignette pass
+      --preview                Half resolution, 30 fps — fast look at motion
+      --open                   Open the result when done
+
+    LOOP:
+      swift-render new MyFilm && swift-render check MyFilm
+      swift-render render MyFilm --preview --open
+      swift-render render MyFilm --out out/myfilm.mp4
 
     EXAMPLES:
       swift-render render LogoReveal --out out/hero.mp4
@@ -362,8 +339,17 @@ func run() async throws {
     case "--version":
         print(swiftRenderVersion)
         return
-    case "render", "frame", "props", "contact", "audio":
-        break
+    case "new":
+        do {
+            let url = try scaffoldScene(name: args.sceneName, kind: args.kind)
+            print("[swift-render] created \(url.path)")
+            print("[swift-render] it is auto-registered — next: swift run swift-render check \(args.sceneName)")
+        } catch {
+            fputs("[swift-render] \(error.localizedDescription)\n", stderr); exit(1)
+        }
+        return
+    case "render", "frame", "props", "contact", "audio", "check":
+        warnIfShadersStale()
     default:
         fputs("Unknown subcommand: \(args.subcommand)\n", stderr)
         printUsage()
@@ -413,44 +399,86 @@ func run() async throws {
         return
     }
 
+    let isPreview = args.preview && args.subcommand == "render"
     let config = Recorder.Config(
-        fps: args.fps,
+        fps: isPreview ? min(args.fps, 30) : args.fps,
         size: size,
-        scale: args.scale,
+        scale: isPreview ? args.scale * 0.5 : args.scale,
         postFX: args.postFX
     )
     let recorder = Recorder(config: config)
 
-    if args.subcommand == "contact" {
-        let outPath = args.out == "out/render.mp4" ? "out/contact.png" : args.out
+    if args.subcommand == "contact" || args.subcommand == "check" {
+        let isCheck = args.subcommand == "check"
+        let defaultOut = isCheck ? "out/check-\(args.sceneName).png" : "out/contact.png"
+        let outPath = args.out == "out/render.mp4" ? defaultOut : args.out
         // full-size layout, downscaled by ImageRenderer — scenes keep their 1080p coordinates
         let thumbConfig = Recorder.Config(fps: args.fps, size: size,
                                           scale: 384.0 / size.width, postFX: args.postFX)
         let thumbRecorder = Recorder(config: thumbConfig)
-        let n = args.cols * args.rows
-        // last sample lands one frame before the end — scenes often fade to black at t == duration
-        let step = (duration - 1.0 / Double(args.fps)) / Double(max(1, n - 1))
+        let cols = isCheck && args.cols == 5 && args.rows == 3 ? 4 : args.cols
+        let rows = isCheck && args.cols == 5 && args.rows == 3 ? 4 : args.rows
+        let n = cols * rows
+        // sample each cell's midpoint: endpoints land on beat-grid cuts and fades,
+        // which are exactly the frames that don't represent the shot
+        let step = duration / Double(max(1, n))
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("sr-contact-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmpDir) }
         var cells: [(Double, URL)] = []
+        let t0 = Date()
         for i in 0..<n {
-            let t = Double(i) * step
+            let t = (Double(i) + 0.5) * step
             let cell = tmpDir.appendingPathComponent(String(format: "c%03d.png", i))
             try runner.frame(thumbRecorder, cell, t, duration, audioSource, propsURL)
             cells.append((t, cell))
         }
-        try composeContactSheet(cells: cells, columns: args.cols, to: URL(fileURLWithPath: outPath))
-        print("[swift-render] contact sheet \(args.cols)×\(args.rows) → \(outPath)")
+        let perFrame = Date().timeIntervalSince(t0) / Double(n)
+        try composeContactSheet(cells: cells, columns: cols, to: URL(fileURLWithPath: outPath))
+        print("[swift-render] contact sheet \(cols)×\(rows) → \(outPath)")
+        guard isCheck else { return }
+
+        var report: [String] = []
+        report.append(String(format: "scene %@ · %.2fs · %d×%d @ %dfps · %d frames · %.0f ms/thumb",
+                             args.sceneName, duration, Int(size.width), Int(size.height), args.fps,
+                             Int(duration * Double(args.fps)), perFrame * 1000))
+        let flat = cells.compactMap { t, url -> Double? in
+            guard let sd = luminanceSpread(url) else { return nil }
+            return sd < 0.015 ? t : nil
+        }
+        if flat.isEmpty { report.append("frames: no blank samples") }
+        else {
+            let edge = flat.allSatisfy { $0 < step || $0 > duration - step }
+            report.append("frames: flat/blank at " + flat.map { String(format: "%.2fs", $0) }.joined(separator: ", ")
+                          + (edge ? " (start/end fades — fine)" : "  ⚠︎ check these"))
+        }
+        switch audioSource {
+        case .score(let score):
+            let (l, r) = ScoreSynth.render(score)
+            report += audioReport(left: l, right: r, rate: scoreSampleRate, events: score.events)
+        case .file(let url):
+            let a = try loadAudioFile(url)
+            report += audioReport(left: a.left, right: a.right, rate: a.rate, events: nil)
+        case .none:
+            report.append("audio: none — add `soundtrack(duration:)` or pass --audio")
+        }
+        let text = report.joined(separator: "\n")
+        print(text)
+        let txt = URL(fileURLWithPath: outPath).deletingPathExtension().appendingPathExtension("txt")
+        try (text + "\n").write(to: txt, atomically: true, encoding: .utf8)
+        print("[swift-render] report → \(txt.path)")
         return
     }
 
     if args.subcommand == "frame" {
-        let outPath = args.out == "out/render.mp4" ? "out/frame.png" : args.out
-        let outURL = URL(fileURLWithPath: outPath)
-        try runner.frame(recorder, outURL, args.at, duration, audioSource, propsURL)
-        print("[swift-render] frame t=\(args.at)s → \(outPath)")
+        let base = args.out == "out/render.mp4" ? "out/frame.png" : args.out
+        for t in args.at {
+            let outPath = args.at.count == 1 ? base
+                : (base as NSString).deletingPathExtension + String(format: "_%.2f.png", t)
+            try runner.frame(recorder, URL(fileURLWithPath: outPath), t, duration, audioSource, propsURL)
+            print("[swift-render] frame t=\(t)s → \(outPath)")
+        }
         return
     }
 
@@ -460,8 +488,8 @@ func run() async throws {
     }
     let startTime = args.rangeStart ?? 0
     let endTime = args.rangeEnd ?? duration
-    let totalFrames = Int(((endTime - startTime) * Double(args.fps)).rounded())
-    print("[swift-render] scene=\(args.sceneName) duration=\(duration)s range=\(startTime)-\(endTime)s fps=\(args.fps) size=\(Int(size.width))×\(Int(size.height)) frames=\(totalFrames) → \(args.out)")
+    let totalFrames = Int(((endTime - startTime) * Double(config.fps)).rounded())
+    print("[swift-render] scene=\(args.sceneName) duration=\(duration)s range=\(startTime)-\(endTime)s fps=\(config.fps) size=\(Int(size.width * config.scale))×\(Int(size.height * config.scale))\(isPreview ? " (preview)" : "") frames=\(totalFrames) → \(args.out)")
     switch audioSource {
     case .file(let u): print("[swift-render] audio: \(u.path)")
     case .score(let sc): print(String(format: "[swift-render] audio: synthesized score (%d events)", sc.events.count))
@@ -472,6 +500,7 @@ func run() async throws {
     try await runner.render(recorder, outURL, endTime, startTime, args.rangeStart == nil ? audioSource : .none, propsURL)
     let elapsed = Date().timeIntervalSince(start)
     print(String(format: "[swift-render] done in %.1fs → %@", elapsed, args.out))
+    if args.open { NSWorkspace.shared.open(outURL) }
 }
 
 try await run()

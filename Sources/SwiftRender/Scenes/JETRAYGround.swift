@@ -58,7 +58,7 @@ public struct JETRAYGround: PropsScene {
 
         return Canvas { ctx, size in
             let W = size.width, H = size.height
-            var c = ctx
+            let c = ctx
             // --- MAIN ground-spotter view ---------------------------------
             c.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)),
                    with: .linearGradient(.init(colors: [Color(white: 0.58), Color(white: 0.44)]),
@@ -157,7 +157,7 @@ public struct JETRAYGround: PropsScene {
     }
 
     static func mark(_ ctx: GraphicsContext, at pt: CGPoint, hostile: Bool, s: CGFloat) {
-        var c = ctx
+        let c = ctx
         c.drawLayer { l in l.addFilter(.blur(radius: 5)); l.fill(Path(ellipseIn: CGRect(x: pt.x-s, y: pt.y-s, width: s*2, height: s*2)), with: .color((hostile ? grey : white).opacity(0.6))) }
         var p = Path()
         if hostile {
@@ -197,7 +197,7 @@ public struct JETRAYGround: PropsScene {
     }
 
     static func drawHUD(_ ctx: GraphicsContext, W: CGFloat, H: CGFloat, bar: CGFloat, rng: Double, clv: Double, tgo: Double, engP: Double) {
-        var c = ctx
+        let c = ctx
         let m = W*0.045, top = bar+26, bot = H-bar-22
         c.fill(Path(CGRect(x: 0, y: H-bar-150, width: W, height: 150)), with: .linearGradient(.init(colors: [.clear, .black.opacity(0.8)]), startPoint: .init(x: 0, y: H-bar-150), endPoint: .init(x: 0, y: H-bar)))
         c.draw(Text("JETRAY  //  COUNTER-UAS INTERCEPT").font(mono(13)).tracking(2).foregroundColor(white), at: .init(x: m, y: top), anchor: .leading)

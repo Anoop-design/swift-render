@@ -62,7 +62,7 @@ public struct JETRAYChase: PropsScene {
 
         return Canvas { ctx, size in
             let W = size.width, H = size.height
-            var c = ctx
+            let c = ctx
             // ---- EO sky/ground ----------------------------------------------
             c.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)),
                    with: .linearGradient(.init(colors: [Color(white: 0.60), Color(white: 0.40), Color(white: 0.30)]),
@@ -133,7 +133,7 @@ public struct JETRAYChase: PropsScene {
 
     // dark quad-drone silhouette (X config), grows with `s`
     static func drawDrone(_ ctx: GraphicsContext, at cpt: CGPoint, s: CGFloat) {
-        var c = ctx
+        let c = ctx
         let angs = [Double.pi / 4, 3 * .pi / 4, 5 * .pi / 4, 7 * .pi / 4]
         var arms = Path()
         for a in angs { arms.move(to: cpt); arms.addLine(to: .init(x: cpt.x + cos(a) * s, y: cpt.y + sin(a) * s)) }
@@ -159,7 +159,7 @@ public struct JETRAYChase: PropsScene {
     }
 
     static func drawLock(_ ctx: GraphicsContext, at cpt: CGPoint, s: CGFloat) {
-        var c = ctx
+        let c = ctx
         let b = CGRect(x: cpt.x - s, y: cpt.y - s, width: s * 2, height: s * 2)
         let cl = min(s * 0.4, 22)
         for (px, py, dx, dy) in [(b.minX, b.minY, 1.0, 1.0), (b.maxX, b.minY, -1.0, 1.0), (b.minX, b.maxY, 1.0, -1.0), (b.maxX, b.maxY, -1.0, -1.0)] {
@@ -171,7 +171,7 @@ public struct JETRAYChase: PropsScene {
 
     static func drawHUD(_ ctx: GraphicsContext, W: CGFloat, H: CGFloat, bar: CGFloat,
                         rng: Double, clv: Double, tgo: Double, locked: Bool) {
-        var c = ctx
+        let c = ctx
         let m = W * 0.045, top = bar + 26, bot = H - bar - 22
         c.fill(Path(CGRect(x: 0, y: bar, width: W, height: 150)),
                with: .linearGradient(.init(colors: [.black.opacity(0.72), .clear]), startPoint: .init(x: 0, y: bar), endPoint: .init(x: 0, y: bar + 150)))

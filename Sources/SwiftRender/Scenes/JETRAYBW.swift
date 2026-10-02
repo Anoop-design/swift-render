@@ -55,7 +55,7 @@ public struct JETRAYBW: PropsScene {
 
         return Canvas { ctx, size in
             let W = size.width, H = size.height
-            var c = ctx
+            let c = ctx
             c.fill(Path(CGRect(x: 0, y: 0, width: W, height: H)), with: .color(.black))
 
             // ---- HERO IMAGERY (drawn first, behind HUD) --------------------
@@ -189,7 +189,7 @@ public struct JETRAYBW: PropsScene {
         // bottom telemetry strip
         c.opacity = 0.95
         func stat(_ k: String, _ v: String, _ x: CGFloat) {
-            var cc = c
+            let cc = c
             cc.draw(Text(k).font(mono(11)).tracking(2).foregroundColor(grey), at: .init(x: x, y: bot - 20), anchor: .leading)
             cc.draw(Text(v).font(cond(34)).foregroundColor(white), at: .init(x: x, y: bot + 6), anchor: .leading)
         }

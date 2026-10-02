@@ -26,15 +26,21 @@ open out/test.mp4
        }
    }
    ```
-2. Register in `Sources/SwiftRender/main.swift`'s `sceneRunners` dict.
-3. Build + render. Done.
+   (or `swift run swift-render new YourScene` to scaffold one with a Timeline + Score).
+2. That's it for registration — `SceneRegistryPlugin` finds every `public struct X` that
+   conforms to a scene protocol and registers it as `"X"` at build time.
+3. `swift run swift-render check YourScene`, review the contact sheet + report, then render.
 
 ## Adding a shader
 
 1. Add a `[[ stitchable ]]` function to a `.metal` file in `Sources/SwiftRender/Shaders/`.
 2. `swift build` — the MetalCompilerPlugin compiles all shaders into the
-   metallib automatically (requires full Xcode for the metal toolchain).
-3. Use it in a scene via `ShaderLibrary.bundle(.module).yourShader(...)`.
+   metallib automatically. This needs the Metal compiler
+   (`xcodebuild -downloadComponent MetalToolchain`); without it the build falls back
+   to `Shaders/prebuilt.metallib` and renders warn that your edit isn't live.
+3. After a successful compile, refresh the fallback so toolchain-less machines get it:
+   `cp .build/release/SwiftRender_SwiftRender.bundle/default.metallib Sources/SwiftRender/Shaders/prebuilt.metallib`
+4. Use it in a scene via `ShaderLibrary.bundle(.module).yourShader(...)`.
 
 ## Style
 

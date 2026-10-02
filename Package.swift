@@ -20,10 +20,15 @@ let package = Package(
         ),
         .executableTarget(
             name: "SwiftRenderCLI",
-            dependencies: ["SwiftRender"]
+            dependencies: ["SwiftRender"],
+            plugins: ["SceneRegistryPlugin"]
         ),
         .plugin(
             name: "MetalCompilerPlugin",
+            capability: .buildTool()
+        ),
+        .plugin(
+            name: "SceneRegistryPlugin",
             capability: .buildTool()
         ),
         .testTarget(

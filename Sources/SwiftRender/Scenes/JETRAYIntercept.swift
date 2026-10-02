@@ -197,7 +197,7 @@ public struct JETRAYIntercept: PropsScene {
 
     static func marker(_ ctx: GraphicsContext, at pt: CGPoint, color: Color,
                        diamond: Bool, heading: Double = 0) {
-        var c = ctx
+        let c = ctx
         c.drawLayer { l in
             l.addFilter(.blur(radius: 6))
             l.fill(Path(ellipseIn: CGRect(x: pt.x-7, y: pt.y-7, width: 14, height: 14)),
@@ -273,7 +273,7 @@ public struct JETRAYIntercept: PropsScene {
     // MARK: fire-control HUD
     static func drawHUD(_ ctx: GraphicsContext, rect r: CGRect, R: Double, vc: Double,
                         tgo: Double, om: Double, r0: Double, locked: Bool, terminal: Bool) {
-        var c = ctx
+        let c = ctx
         let rows: [(String, String, Color)] = [
             ("RANGE", String(format: "%.0f", R) + " m", white),
             ("CLOSING VEL", String(format: "%.0f", vc) + " m/s", cyan),

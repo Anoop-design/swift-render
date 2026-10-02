@@ -12,6 +12,10 @@ public struct PostFX: ViewModifier {
 
     public func body(content: Content) -> some View {
         ZStack {
+            // Opaque base: scenes that fade by lowering their own opacity would
+            // otherwise let the overlay-blended grain composite onto transparency
+            // (visible noise on "black"). Output is opaque H.264, so this is free.
+            if enabled { Color.black.ignoresSafeArea() }
             content
 
             if enabled {
