@@ -278,6 +278,20 @@ Canvas { ctx, size in
 }
 ```
 
+### Stylize — re-render any view 16 ways
+
+```swift
+let shot = Canvas { ctx, size in drawMyScene(ctx, size, t) }       // any View works
+let grid = PixelGrid.sample(shot, size: full, cols: 320)!          // one snapshot per frame
+Stylize.view(.cmyk, grid: grid, size: full)                        // density: 0.5 for small tiles
+// .pixel .dither .gameBoy .ascii .halftone .cmyk .mosaic .led
+// .engraving .crosshatch .pointillism .bricks .crossStitch .lowPoly .blueprint .thermal
+grid.lum(x, y)  grid.rgb(x, y)  grid.resized(cols:fitting:)  grid.mapped { r, g, b, x, y in … }
+```
+Writing your own look: read the grid, batch shapes into ONE `Path`, fill once (6,000 dots in a single
+fill is far faster than 6,000 fills). Ink-on-paper looks need a tone lift (`pow(lum, 0.5)`) on dark scenes
+or they read as negatives. `StyleLab.swift` is the worked example.
+
 ## Gotchas learned the hard way
 
 - **Thin strokes vanish** when anything renders below 1:1 (dither at 1/3, contact thumbs): use ≥5 px lines for webs, rain, outlines.

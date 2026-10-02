@@ -71,3 +71,54 @@ final class PixelFontTests: XCTestCase {
         XCTAssertEqual(PixelFont.width("HI", scale: 2), 22)
     }
 }
+
+final class StylizeTests: XCTestCase {
+    private func ramp() -> PixelGrid {
+        var px = [UInt8](repeating: 255, count: 8 * 4 * 4)
+        for y in 0..<4 { for x in 0..<8 { let i = (y * 8 + x) * 4; let v = UInt8(x * 255 / 7); px[i] = v; px[i + 1] = v; px[i + 2] = v } }
+        return PixelGrid(cols: 8, rows: 4, data: px)
+    }
+
+    func testPixelGridAccessAndResize() {
+        let g = ramp()
+        XCTAssertEqual(g.lum(0, 0), 0, accuracy: 0.01)
+        XCTAssertEqual(g.lum(7, 3), 1, accuracy: 0.01)
+        XCTAssertEqual(g.lum(99, 99), 1, accuracy: 0.01, "out-of-range reads clamp")
+        let half = g.resized(cols: 4, rows: 2)
+        XCTAssertEqual(half.cols, 4); XCTAssertEqual(half.rows, 2)
+        XCTAssertEqual(half.lum(0, 0), (0 + 36.0 / 255) / 2, accuracy: 0.02, "box filter averages neighbours")
+        XCTAssertEqual(g.resized(cols: 16, fitting: CGSize(width: 160, height: 90)).rows, 9)
+    }
+
+    func testMappedAndImageRoundTrip() throws {
+        let inverted = ramp().mapped { r, g, b, _, _ in (1 - r, 1 - g, 1 - b) }
+        XCTAssertEqual(inverted.lum(0, 0), 1, accuracy: 0.01)
+        let cg = try XCTUnwrap(inverted.cgImage())
+        let back = try XCTUnwrap(PixelGrid(cg))
+        XCTAssertEqual(back.cols, 8)
+        XCTAssertEqual(back.lum(7, 0), 0, accuracy: 0.03)
+    }
+
+    func testPaletteAndHeatHelpers() {
+        let red = Stylize.nearest(Stylize.pico8, 0.95, 0.05, 0.25)
+        XCTAssertEqual(red.0, 1, accuracy: 0.01); XCTAssertEqual(red.1, 0, accuracy: 0.01)
+        XCTAssertLessThan(Stylize.heat(0).0, 0.05)
+        XCTAssertEqual(Stylize.heat(1).1, 1, accuracy: 0.001)
+        XCTAssertEqual(Stylize.Style.allCases.count, 16)
+    }
+
+    @MainActor func testEveryStyleRendersDeterministically() throws {
+        let size = CGSize(width: 192, height: 108)
+        let g = ramp()
+        for style in Stylize.Style.allCases {
+            func shot() -> CGImage? {
+                let r = ImageRenderer(content: Stylize.view(style, grid: g, size: size, density: 0.25, t: 1.5))
+                r.scale = 1
+                return r.cgImage
+            }
+            let a = try XCTUnwrap(shot().flatMap { PixelGrid($0) }, "\(style)")
+            let b = try XCTUnwrap(shot().flatMap { PixelGrid($0) }, "\(style)")
+            XCTAssertEqual(a.data, b.data, "\(style) must be a pure function of its inputs")
+        }
+    }
+}

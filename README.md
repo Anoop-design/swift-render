@@ -187,6 +187,12 @@ Recent Xcodes ship the Metal compiler as a separate download. Without it the bui
 Reusable building blocks extracted from real scenes:
 
 - **`Dither.render(view, size:, cell:, palette:)`** — whole-frame ordered (Bayer 8×8) dither to any palette, CPU-side, no toolchain needed. Author in grayscale, get a 1-bit print (`Dither.noir`) or a 4-tone ramp (`Dither.gameBoy`). See `SpiderNoir`.
+- **`Stylize`** — sixteen whole-frame renderers driven by a `PixelGrid` snapshot of any view: `.pixel`, `.dither`, `.gameBoy`, `.ascii`, `.halftone`, `.cmyk`, `.mosaic`, `.led`, `.engraving`, `.crosshatch`, `.pointillism`, `.bricks`, `.crossStitch`, `.lowPoly`, `.blueprint`, `.thermal`. CPU + Canvas, deterministic, no toolchain. See `StyleLab` — one shot through all sixteen, then all sixteen live in a 4×4 wall:
+  ```swift
+  let grid = PixelGrid.sample(myScene, size: size, cols: 320)!     // once per frame
+  Stylize.view(.ascii, grid: grid, size: size)                     // full-frame
+  Stylize.view(.halftone, grid: grid, size: tile, density: 0.5)    // quarter-area tile
+  ```
 - **`PixelCanvas`** — draw on a logical low-res grid inside `Canvas`: snapped rects, sprites from strings, a 5×7 bitmap font (`PixelFont`), halftone dot screens, halftone type. See `PixelSonnet`.
 
 ## Twelve aesthetics, one engine
@@ -206,6 +212,9 @@ swift run swift-render render StyleReel --audio out/reel.wav
 
 | | |
 |---|---|
+| `StyleLab` — one scene re-rendered 16 ways: pixel, dither, ASCII, halftone, CMYK, mosaic, LED… | `swift run swift-render render StyleLab` |
+| `SpiderNoir` — a 1-bit charcoal-and-cream noir short | `swift run swift-render render SpiderNoir` |
+| `PixelSonnet` — an 8-bit pixel-art short with a chiptune score | `swift run swift-render render PixelSonnet` |
 | `FutureOfTheFirm` — a narrated, animated essay explainer ([docs](docs/future-of-the-firm.md)) | `bash tools/make_firm_audio.sh` |
 | `LaunchFilm2` — the launch film: every feature, one file | `swift run swift-render render LaunchFilm2 --audio out/launch.wav` |
 | `StyleReel` — 12 aesthetics with card-zoom transitions | `swift run swift-render render StyleReel --audio out/reel.wav` |
@@ -244,7 +253,7 @@ Determinism isn't a vibe — `swift test` includes a render-twice-byte-identical
 ## Use it as a library
 
 ```swift
-.package(url: "https://github.com/skyblanket/swift-render", from: "0.6.0")
+.package(url: "https://github.com/skyblanket/swift-render", from: "0.7.0")
 ```
 
 ```swift
