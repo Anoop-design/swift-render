@@ -512,44 +512,50 @@ public struct SpiderNoir: RenderScene {
         }
     }
 
+    static func titleBackdrop(_ ctx: GraphicsContext, _ size: CGSize, _ t: Double) {
+        let full = Path(CGRect(origin: .zero, size: size))
+        let mid = CGPoint(x: size.width / 2, y: size.height / 2)
+        ctx.fill(full, with: .color(g(0.03)))
+        ctx.fill(full, with: .radialGradient(Gradient(colors: [g(0.45), g(0)]), center: mid, startRadius: 0, endRadius: 820))
+        let wp: Double = Ease.easeOut(Ease.clip(t, 0, 1.4))
+        let corners: [(CGPoint, Double, Double)] = [(CGPoint(x: 0, y: 0), 1.0, 1.0), (CGPoint(x: size.width, y: 0), -1.0, 1.0)]
+        for (corner, sx, sy) in corners {
+            for i in 0..<5 {
+                let a: Double = Double.pi / 2 * (Double(i) + 0.5) / 5
+                let reach: Double = 780 * wp
+                let end = CGPoint(x: corner.x + sx * cos(a) * reach, y: corner.y + sy * sin(a) * reach)
+                var p = Path(); p.move(to: corner); p.addLine(to: end)
+                ctx.stroke(p, with: .color(g(0.85)), lineWidth: 6)
+            }
+            for r in 1...6 {
+                var p = Path()
+                let rr: Double = Double(r) * 120 * wp
+                for i in 0...5 {
+                    let a: Double = Double.pi / 2 * (Double(i) + 0.5) / 5
+                    let pt = CGPoint(x: corner.x + sx * cos(a) * rr, y: corner.y + sy * sin(a) * rr)
+                    if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                }
+                ctx.stroke(p, with: .color(g(0.85)), lineWidth: 5)
+            }
+        }
+        let sway: Double = sin(t * 1.6) * 20
+        let len: Double = 330 + 260 * Ease.easeOut(Ease.clip(t, 0.1, 1.4))
+        let anchorX: Double = size.width * 0.84
+        let x: Double = anchorX + sway
+        var th = Path(); th.move(to: CGPoint(x: anchorX, y: 0)); th.addLine(to: CGPoint(x: x, y: len))
+        ctx.stroke(th, with: .color(g(0.95)), lineWidth: 5)
+        spider(ctx, CGPoint(x: x, y: len), ang: Double.pi / 2 + sway * 0.004, s: 0.95, ph: t * 1.2, fill: g(0.95), mark: g(0.0))
+    }
+
     // MARK: bar 6 · title
 
     @ViewBuilder @MainActor
     static func title(_ t: Double) -> some View {
-        let pop = Ease.spring(t, from: 1.18, to: 1.0, response: 0.5, dampingFraction: 0.7)
-        let appear = Ease.easeOut(Ease.clip(t, 0, 0.25))
-        let rule = Ease.easeOut(Ease.clip(t, 0.5, 1.1))
+        let pop: Double = Ease.spring(t, from: 1.18, to: 1.0, response: 0.5, dampingFraction: 0.7)
+        let appear: Double = Ease.easeOut(Ease.clip(t, 0, 0.25))
+        let rule: Double = Ease.easeOut(Ease.clip(t, 0.5, 1.1))
         ZStack {
-            Canvas { ctx, size in
-                ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(g(0.03)))
-                ctx.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .radialGradient(Gradient(colors: [g(0.45), g(0)]), center: CGPoint(x: size.width / 2, y: size.height / 2), startRadius: 0, endRadius: 820))
-                let wp = Ease.easeOut(Ease.clip(t, 0, 1.4))
-                for (corner, sx, sy) in [(CGPoint(x: 0, y: 0), 1.0, 1.0), (CGPoint(x: size.width, y: 0), -1.0, 1.0)] {
-                    for i in 0..<5 {
-                        let a = Double.pi / 2 * (Double(i) + 0.5) / 5
-                        var p = Path(); p.move(to: corner)
-                        p.addLine(to: CGPoint(x: corner.x + sx * cos(a) * 780 * wp, y: corner.y + sy * sin(a) * 780 * wp))
-                        ctx.stroke(p, with: .color(g(0.85)), lineWidth: 6)
-                    }
-                    for r in 1...6 {
-                        var p = Path()
-                        for i in 0...5 {
-                            let a = Double.pi / 2 * (Double(i) + 0.5) / 5
-                            let rr = Double(r) * 120 * wp
-                            let pt = CGPoint(x: corner.x + sx * cos(a) * rr, y: corner.y + sy * sin(a) * rr)
-                            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
-                        }
-                        ctx.stroke(p, with: .color(g(0.85)), lineWidth: 5)
-                    }
-                }
-                let sway = sin(t * 1.6) * 20
-                let len = 330 + 260 * Ease.easeOut(Ease.clip(t, 0.1, 1.4))
-                let x = size.width * 0.84 + sway
-                var th = Path(); th.move(to: CGPoint(x: size.width * 0.84, y: 0)); th.addLine(to: CGPoint(x: x, y: len))
-                ctx.stroke(th, with: .color(g(0.95)), lineWidth: 5)
-                spider(ctx, CGPoint(x: x, y: len), ang: Double.pi / 2 + sway * 0.004, s: 0.95, ph: t * 1.2, fill: g(0.95), mark: g(0.0))
-            }
+            Canvas { ctx, size in titleBackdrop(ctx, size, t) }
             VStack(spacing: -30) {
                 Text("SPIDER")
                     .font(.system(size: 290, weight: .black, design: .serif))

@@ -190,23 +190,29 @@ public struct Sizzle: AudioReactiveScene {
                 ForEach(0..<2, id: \.self) { r in
                     HStack(spacing: 22) {
                         ForEach(0..<2, id: \.self) { c in
-                            let i = r * 2 + c
-                            let p = Ease.spring(max(0, t - Double(i) * beat * 0.5),
-                                                from: 0, to: 1, response: 0.38, dampingFraction: 0.72)
+                            let i: Int = r * 2 + c
+                            let delay: Double = Double(i) * beat * 0.5
+                            let p: Double = Ease.spring(max(0, t - delay),
+                                                        from: 0, to: 1, response: 0.38, dampingFraction: 0.72)
+                            let shaderT: Double = t + Double(i) * 3
                             ZStack(alignment: .topLeading) {
-                                shaderFill(names[i], t + Double(i) * 3, size: tile)
+                                shaderFill(names[i], shaderT, size: tile)
                                     .frame(width: tile.width, height: tile.height)
                                 chip(names[i]).padding(18)
                             }
                             .clipShape(RoundedRectangle(cornerRadius: 30))
                             .overlay(RoundedRectangle(cornerRadius: 30).stroke(.white.opacity(0.18), lineWidth: 2))
-                            .scaleEffect((0.82 + 0.18 * p) * (1 + 0.012 * bass))
-                            .opacity(min(1, p * 1.6))
+                            .scaleEffect(tileScale(p, bass))
+                            .opacity(min(1.0, p * 1.6))
                         }
                     }
                 }
             }
         }
+    }
+
+    static func tileScale(_ p: Double, _ bass: Double) -> CGFloat {
+        CGFloat((0.82 + 0.18 * p) * (1 + 0.012 * bass))
     }
 
     // MARK: bar 3 · springs
@@ -429,7 +435,9 @@ public struct Sizzle: AudioReactiveScene {
 
     @MainActor
     static func flash(_ t: Double, extra: [Double]) -> some View {
-        let hit = (Array(chapters[1...7]) + extra).map { max(0, 1 - abs(t - $0) / 0.06) }.max() ?? 0
+        let cuts: [Double] = Array(chapters[1...7]) + extra
+        var hit: Double = 0
+        for c in cuts { hit = max(hit, 1.0 - abs(t - c) / 0.06) }
         return Color.white.opacity(hit * 0.55).ignoresSafeArea()
     }
 

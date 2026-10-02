@@ -382,7 +382,7 @@ public struct OriginsOfWokeness: RenderScene {
                 }
                 .scaleEffect(0.75 + 0.25 * p)
                 .opacity(people)
-                .offset(x: x + CGFloat(i) * 52, y: 80 + CGFloat(i % 2) * 14)
+                .offset(x: CGFloat(x) + CGFloat(i) * 52.0, y: 80.0 + CGFloat(i % 2) * 14.0)
             }
 
             VStack(spacing: 0) {

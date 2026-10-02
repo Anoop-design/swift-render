@@ -662,11 +662,12 @@ public struct FutureOfTheFirm: RenderScene {
                 ForEach(0..<48, id: \.self) { i in
                     let g = i % 3
                     let gx = CGFloat([-360.0, 0.0, 360.0][g])
-                    let ang = hash01(Double(i) * 1.7) * 2 * Double.pi
-                    let rad = 120.0 + hash01(Double(i) * 3.1) * 320.0
-                    let p = Ease.easeIn(Ease.clip(absorb, 0, 1))   // 0 = scattered, 1 = absorbed
-                    let dx = gx + CGFloat(cos(ang) * rad * (1 - p))
-                    let dy = CGFloat(-10 + sin(ang) * rad * 0.7 * (1 - p))
+                    let ang: Double = hash01(Double(i) * 1.7) * 2 * Double.pi
+                    let rad: Double = 120.0 + hash01(Double(i) * 3.1) * 320.0
+                    let p: Double = Ease.easeIn(Ease.clip(absorb, 0, 1))   // 0 = scattered, 1 = absorbed
+                    let spread: Double = rad * (1 - p)
+                    let dx: CGFloat = gx + CGFloat(cos(ang) * spread)
+                    let dy: CGFloat = CGFloat(-10 + sin(ang) * spread * 0.7)
                     Circle().fill(ink.opacity(0.85))
                         .frame(width: 8, height: 8)
                         .position(x: 960 + dx, y: 540 + dy)
