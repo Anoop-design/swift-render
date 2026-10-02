@@ -111,22 +111,29 @@ public final class Recorder {
         for frameIdx in 0..<totalFrames {
             let t = startTime + Double(frameIdx) / Double(config.fps)
 
-            // Build a fresh view for this frame; apply PostFX wrapper at the top.
-            let rootView = ZStack {
-                content(t)
+            // Drain each frame's autoreleased image memory (NSImage, CGImage,
+            // CIContext intermediates) inside an explicit pool — without it,
+            // a long render accumulates every frame's buffers and gets OOM-killed.
+            // The owned CVPixelBuffer (a Create-rule object) safely outlives the pool.
+            let pixelBuffer: CVPixelBuffer? = autoreleasepool {
+                // Build a fresh view for this frame; apply PostFX wrapper at the top.
+                let rootView = ZStack {
+                    content(t)
+                }
+                .frame(width: config.size.width, height: config.size.height)
+                .environment(\.renderContext, RenderContext(size: config.size, fps: config.fps, duration: duration))
+                .modifier(PostFX(time: t, enabled: applyFX))
+
+                let renderer = ImageRenderer(content: rootView)
+                renderer.scale = scaleCG
+
+                guard let nsImage = renderer.nsImage,
+                      let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                else { return nil }
+
+                return makePixelBuffer(from: cgImage, size: config.size, ciContext: imageContext)
             }
-            .frame(width: config.size.width, height: config.size.height)
-            .environment(\.renderContext, RenderContext(size: config.size, fps: config.fps, duration: duration))
-            .modifier(PostFX(time: t, enabled: applyFX))
-
-            let renderer = ImageRenderer(content: rootView)
-            renderer.scale = scaleCG
-
-            guard let nsImage = renderer.nsImage,
-                  let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
-            else { continue }
-
-            guard let pixelBuffer = makePixelBuffer(from: cgImage, size: config.size, ciContext: imageContext) else { continue }
+            guard let pixelBuffer else { continue }
 
             // Wait if input isn't ready
             while !videoInput.isReadyForMoreMediaData {

@@ -14,13 +14,17 @@
 # array in Sources/SwiftRender/Scenes/FutureOfTheFirm.swift.
 #
 # Usage:
-#   bash tools/make_firm_audio.sh                 # defaults (Samantha voice)
+#   bash tools/make_firm_audio.sh                 # defaults (`say`, Samantha)
 #   VOICE="Ava (Premium)" bash tools/make_firm_audio.sh
 #   VOICE=Daniel RATE=170 bash tools/make_firm_audio.sh
+#   TTS=kokoro bash tools/make_firm_audio.sh                       # Kokoro, af_heart
+#   TTS=kokoro KOKORO_VOICE=af_bella bash tools/make_firm_audio.sh # Kokoro, other voice
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+TTS="${TTS:-say}"                     # tts engine: say | kokoro
+KOKORO_VOICE="${KOKORO_VOICE:-af_heart}"
 VOICE="${VOICE:-Samantha}"
 RATE="${RATE:-}"                      # words-per-minute; empty = voice default
 OUT="${OUT:-out/future-of-the-firm.mp4}"
@@ -51,22 +55,36 @@ LINES=(
 echo "[firm] 1/4  exporting ambient score → $MUSIC"
 swift run swift-render audio FutureOfTheFirm --out "$MUSIC"
 
-echo "[firm] 2/4  generating TTS with voice '$VOICE'"
-: > "$TSV"
-for entry in "${LINES[@]}"; do
-  id="${entry%%|*}"; rest="${entry#*|}"
-  start="${rest%%|*}"; text="${rest#*|}"
-  aiff="$(mktemp -t firm_vo).aiff"
-  if [[ -n "$RATE" ]]; then
-    say -v "$VOICE" -r "$RATE" -o "$aiff" "$text"
-  else
-    say -v "$VOICE" -o "$aiff" "$text"
-  fi
-  afconvert -f WAVE -d LEI16@44100 -c 1 "$aiff" "$VODIR/$id.wav"
-  rm -f "$aiff"
-  printf '%s\t%s\t%s\n' "$id" "$start" "$text" >> "$TSV"
-  echo "       line $id @ ${start}s"
-done
+if [[ "$TTS" == "kokoro" ]]; then
+  echo "[firm] 2/4  generating TTS with engine 'kokoro' (voice '$KOKORO_VOICE')"
+  # Build the TSV mix_vo.py consumes, then synthesize the whole batch in ONE
+  # python process so the Kokoro model loads only once.
+  : > "$TSV"
+  for entry in "${LINES[@]}"; do
+    id="${entry%%|*}"; rest="${entry#*|}"
+    start="${rest%%|*}"; text="${rest#*|}"
+    printf '%s\t%s\t%s\n' "$id" "$start" "$text" >> "$TSV"
+  done
+  /Users/sky/swift-render/.venv-kokoro/bin/python \
+    tools/kokoro_tts.py "$TSV" "$VODIR" "$KOKORO_VOICE"
+else
+  echo "[firm] 2/4  generating TTS with engine 'say' (voice '$VOICE')"
+  : > "$TSV"
+  for entry in "${LINES[@]}"; do
+    id="${entry%%|*}"; rest="${entry#*|}"
+    start="${rest%%|*}"; text="${rest#*|}"
+    aiff="$(mktemp -t firm_vo).aiff"
+    if [[ -n "$RATE" ]]; then
+      say -v "$VOICE" -r "$RATE" -o "$aiff" "$text"
+    else
+      say -v "$VOICE" -o "$aiff" "$text"
+    fi
+    afconvert -f WAVE -d LEI16@44100 -c 1 "$aiff" "$VODIR/$id.wav"
+    rm -f "$aiff"
+    printf '%s\t%s\t%s\n' "$id" "$start" "$text" >> "$TSV"
+    echo "       line $id @ ${start}s"
+  done
+fi
 
 echo "[firm] 3/4  ducking music under VO → $MIX"
 python3 tools/mix_vo.py "$MUSIC" "$TSV" "$VODIR" "$MIX"

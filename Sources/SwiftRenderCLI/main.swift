@@ -8,6 +8,10 @@ let swiftRenderVersion = "0.5.0"
 // MARK: - Scene registry
 
 let sceneRunners: [String: SceneRunner] = [
+    "JETRAYIntercept":  SceneRunner(JETRAYIntercept.self),
+    "JETRAYBW":         SceneRunner(JETRAYBW.self),
+    "JETRAYChase":      SceneRunner(JETRAYChase.self),
+    "JETRAYGround":     SceneRunner(JETRAYGround.self),
     // Generic scenes (Cookbook + library — public API examples)
     "TextReveal":       SceneRunner(TextReveal.self),
     "Kinetic":          SceneRunner(Kinetic.self),
@@ -17,6 +21,11 @@ let sceneRunners: [String: SceneRunner] = [
     "TimelineDemo":     SceneRunner(TimelineDemo.self),
     "LaunchFilm":       SceneRunner(LaunchFilm.self),
     "LaunchFilm2":      SceneRunner(LaunchFilm2.self),
+    "RepoPromo":        SceneRunner(RepoPromo.self),
+    "SwarmRTPromo":     SceneRunner(SwarmRTPromo.self),
+    "SwarmRTFilm":      SceneRunner(SwarmRTFilm.self),
+    "FilmScore62":      SceneRunner(FilmScore62.self),
+    "FilmScoreSC":      SceneRunner(FilmScoreSC.self),
     "StyleReel":        SceneRunner(StyleReel.self),
     "StyleReelVertical": SceneRunner(StyleReelVertical.self),
     "CardStack":        SceneRunner(CardStack.self),
@@ -25,6 +34,9 @@ let sceneRunners: [String: SceneRunner] = [
     "ShaderGallery":    SceneRunner(ShaderGallery.self),
     "FutureOfTheFirm":  SceneRunner(FutureOfTheFirm.self),
     "Sizzle":           SceneRunner(Sizzle.self),
+    "BillionDollars":   SceneRunner(BillionDollars.self),
+    "OriginsOfWokeness": SceneRunner(OriginsOfWokeness.self),
+    "AutonomousWar":     SceneRunner(AutonomousWar.self),
 
     // OpenEar — real-world consumer scenes living inside the repo
     "LogoReveal":       SceneRunner(LogoReveal.self),
@@ -36,6 +48,7 @@ let sceneRunners: [String: SceneRunner] = [
     "LaunchReel":       SceneRunner(LaunchReel.self),
     "IGHook":           SceneRunner(IGHook.self),
     "IGOutro":          SceneRunner(IGOutro.self),
+    "BugTest":          SceneRunner(BugTest.self),
 ]
 
 enum AudioSource {

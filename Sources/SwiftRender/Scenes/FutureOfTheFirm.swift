@@ -68,22 +68,89 @@ public struct FutureOfTheFirm: RenderScene {
 
     /// The soundtrack lives next to the Timeline: `anchors` drives both the
     /// cuts and the hits, so audio and video share one source of truth.
+    ///
+    /// MUSICAL DESIGN — a slow harmonic journey in A minor that opens up toward
+    /// C major by the finale, scored so a ducked voiceover sits cleanly on top.
+    /// The bed is built almost entirely from sustained sub-bass + layered pad
+    /// drones (warm low/low-mid harmony), keeping the 1–4 kHz vocal band sparse.
+    ///
+    ///   sec  bars                 chord        feeling
+    ///   00   title (0–20)         Am  (A·C·E)  contemplative, hollow open fifth
+    ///   01   two-capitals (20–44) F  (F·A·C)   warm IV/VI lift — "two capitals"
+    ///   02   learning (44–67)     C  (C·E·G)   brightening — the loop compounds
+    ///   03   build (67–93)        Dm→Asus      tension/momentum into the climax
+    ///   04   CLIMAX (93–106)      Am  (A·C·E)  full, ringing — hill-climbing machine
+    ///   05   warning (106–120)    Em  (E·G·B)  darker dominant — the failure mode
+    ///   06   ecosystem (120–144)  F→C          turn outward, resolving upward
+    ///   07   FINALE (144–162.5)   C  (C·E·G·C) fullest, resolved major chord
     public static func soundtrack(duration: Double) -> Score? {
-        let cuts = Array(anchors.dropFirst())
+        let a = anchors
+        let cuts = Array(a.dropFirst())
         return Score(duration: duration) {
-            drone(.a1, from: 0, for: duration, amp: 0.085)
-            drone(.e2, from: anchors[4], for: 80, amp: 0.038)
-            boom(at: 0.2, amp: 0.5, duration: 2.6)
+            // ── Sub-bass foundation: one continuous low root under the whole
+            //    piece, gently following the harmony so it never fights the VO.
+            drone(.a1, from: 0,    for: 70,  amp: 0.10)            // A  · opening
+            drone(Note(43.65), from: a[3] - 1, for: 30, amp: 0.085) // F  · two-capitals
+            drone(Note(32.70), from: a[5] - 1, for: 42, amp: 0.085) // C  · learning/build
+            drone(.a1, from: a[8] - 1, for: 16,  amp: 0.11)         // A  · climax
+            drone(.e1, from: a[9] - 1, for: 16,  amp: 0.085)        // E  · warning
+            drone(Note(32.70), from: a[10] - 1, for: 26, amp: 0.10) // C  · ecosystem/finale
+
+            // ── Evolving pad harmony (chord stacks of drones, gentle overlaps).
+            chordPad([.a1, .e2, c3],      from: 0,        until: a[3], amp: 0.052) // Am
+            chordPad([f2, .a2, c3],       from: a[3] - 1, until: a[5], amp: 0.050) // F
+            chordPad([.c2, .g2, e3],      from: a[5] - 1, until: a[7], amp: 0.048) // C
+            chordPad([.d2, .a2, f3],      from: a[7] - 1, until: a[8], amp: 0.052) // Dm — tension
+            chordPad([.a1, .e2, .b1, c3], from: a[8] - 0.6, until: a[9], amp: 0.060) // Asus/Am climax
+            chordPad([.e1, .b1, .g2],     from: a[9] - 0.8, until: a[10], amp: 0.052) // Em — warning
+            chordPad([f2, c3, .a2],       from: a[10] - 0.8, until: a[12], amp: 0.052) // F — turn
+            chordPad([.c2, .g2, e3, c4],  from: a[12] - 0.8, until: duration, amp: 0.058) // C — finale
+
+            // ── Cut accents: a soft whoosh + faint crash on every transition.
             whooshesAt(cuts)
-            crashes(at: cuts, amp: 0.13)
-            // momentum building toward the hill-climbing-machine climax
-            every(1.2, from: anchors[6], to: anchors[9] - 0.5) { kick(at: $0, amp: 0.26) }
-            riser(at: anchors[8] - 2.2, duration: 2.2)
-            boom(at: anchors[8], amp: 0.58, duration: 2.2)        // "a hill-climbing machine"
-            riser(at: anchors[11] - 1.9, duration: 1.9)           // into the ecosystem turn
-            riser(at: anchors[13] - 1.7, duration: 1.7)           // into the lockup
-            boom(at: anchors[13], amp: 0.85, duration: 3.0)       // finale
+            crashes(at: cuts, amp: 0.11)
+
+            // ── Opening downbeat, very soft.
+            boom(at: 0.2, amp: 0.42, duration: 2.6)
+
+            // ── Momentum into the hill-climbing-machine climax (anchors[8]).
+            every(1.2, from: a[6], to: a[9] - 0.5) { kick(at: $0, amp: 0.24) }
+            riser(at: a[8] - 2.2, duration: 2.2)
+            boom(at: a[8], amp: 0.58, duration: 2.2)            // "a hill-climbing machine"
+
+            // ── Ecosystem turn (anchors[11]).
+            riser(at: a[11] - 1.9, duration: 1.9)
+
+            // ── Resolved finale (anchors[13]).
+            riser(at: a[13] - 1.7, duration: 1.7)
+            boom(at: a[13], amp: 0.82, duration: 3.0)
         }
+    }
+
+    // MARK: Score helpers
+
+    /// Higher named pitches (an octave above the bank's bass set) used as pad
+    /// chord tones — they sit *below* the 1–4 kHz vocal band so the voiceover
+    /// stays clear, while still giving the harmony body.
+    static let f2 = Note(87.31), f3 = Note(174.61)
+    static let c3 = Note(130.81), e3 = Note(164.81)
+    static let c4 = Note(261.63)
+
+    /// A sustained chord: one `drone` per pitch, all spanning the same window,
+    /// with an amp taper (root loudest) so stacked tones blend warmly instead of
+    /// summing into a harsh peak — each `drone` adds its own fifth-harmonic and
+    /// slow LFO for movement. Overlapping `from`/`until` across calls makes
+    /// adjacent sections dissolve into one another.
+    static func chordPad(_ notes: [Note], from: Double, until: Double,
+                         amp: Double) -> [ScoreEvent] {
+        let dur = max(0.5, until - from + 1.4)   // overlap into the next chord
+        var out: [ScoreEvent] = []
+        for (i, n) in notes.enumerated() {
+            // upper voices slightly quieter so the root anchors the chord
+            let voiceAmp = amp * (i == 0 ? 1.0 : 0.78 - 0.07 * Double(i - 1))
+            out += drone(n, from: from, for: dur, amp: max(0.012, voiceAmp))
+        }
+        return out
     }
 
     static func whooshesAt(_ times: [Double]) -> [ScoreEvent] {
