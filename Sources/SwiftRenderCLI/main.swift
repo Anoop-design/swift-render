@@ -34,6 +34,7 @@ let sceneRunners: [String: SceneRunner] = [
     "ShaderGallery":    SceneRunner(ShaderGallery.self),
     "FutureOfTheFirm":  SceneRunner(FutureOfTheFirm.self),
     "Sizzle":           SceneRunner(Sizzle.self),
+    "PixelSonnet":      SceneRunner(PixelSonnet.self),
     "BillionDollars":   SceneRunner(BillionDollars.self),
     "OriginsOfWokeness": SceneRunner(OriginsOfWokeness.self),
     "AutonomousWar":     SceneRunner(AutonomousWar.self),
