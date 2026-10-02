@@ -134,7 +134,7 @@ public struct JETRAYChase: PropsScene {
     // dark quad-drone silhouette (X config), grows with `s`
     static func drawDrone(_ ctx: GraphicsContext, at cpt: CGPoint, s: CGFloat) {
         let c = ctx
-        let angs = [Double.pi / 4, 3 * .pi / 4, 5 * .pi / 4, 7 * .pi / 4]
+        let angs: [CGFloat] = [CGFloat.pi / 4, 3 * CGFloat.pi / 4, 5 * CGFloat.pi / 4, 7 * CGFloat.pi / 4]
         var arms = Path()
         for a in angs { arms.move(to: cpt); arms.addLine(to: .init(x: cpt.x + cos(a) * s, y: cpt.y + sin(a) * s)) }
         c.stroke(arms, with: .color(body), lineWidth: max(1.5, s * 0.12))

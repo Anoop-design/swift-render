@@ -176,7 +176,7 @@ public struct JETRAYGround: PropsScene {
         let tx = r.midX + CGFloat(fx) * r.width/2, ty = r.midY - CGFloat(fy) * r.height/2
         let s = CGFloat(fsz) * r.height * 0.5
         // drone glyph
-        let angs = [Double.pi/4, 3*Double.pi/4, 5*Double.pi/4, 7*Double.pi/4]
+        let angs: [CGFloat] = [CGFloat.pi/4, 3*CGFloat.pi/4, 5*CGFloat.pi/4, 7*CGFloat.pi/4]
         var arms = Path(); for a in angs { arms.move(to: .init(x: tx, y: ty)); arms.addLine(to: .init(x: tx+cos(a)*s, y: ty+sin(a)*s)) }
         c.stroke(arms, with: .color(body), lineWidth: max(1.2, s*0.12))
         for a in angs { let rr = s*0.42; c.fill(Path(ellipseIn: CGRect(x: tx+cos(a)*s-rr, y: ty+sin(a)*s-rr, width: rr*2, height: rr*2)), with: .color(body.opacity(0.92))) }

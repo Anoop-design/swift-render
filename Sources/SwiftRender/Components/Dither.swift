@@ -50,22 +50,33 @@ public enum Dither {
         var px = [UInt8](repeating: 0, count: w * h * 4)
         let steps = Float(rgb.count - 1)
         var result: CGImage?
-        px.withUnsafeMutableBytes { buf in
-            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8,
+        px.withUnsafeMutableBytes { (buf: UnsafeMutableRawBufferPointer) -> Void in
+            guard let base = buf.baseAddress,
+                  let ctx = CGContext(data: base, width: w, height: h, bitsPerComponent: 8,
                                       bytesPerRow: w * 4, space: space, bitmapInfo: info) else { return }
             ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-            for y in 0..<h {
-                for x in 0..<w {
-                    let i = (y * w + x) * 4
-                    let lum = (0.299 * Float(buf[i]) + 0.587 * Float(buf[i + 1]) + 0.114 * Float(buf[i + 2])) / 255
-                    let v = min(1, max(0, (lum - 0.5) * contrast + 0.5 + bias)) * steps
-                    let lo = min(Int(v), rgb.count - 2)
-                    let c = (v - Float(lo)) > bayer8[(y & 7) * 8 + (x & 7)] ? rgb[lo + 1] : rgb[lo]
-                    buf[i] = c.0; buf[i + 1] = c.1; buf[i + 2] = c.2; buf[i + 3] = 255
-                }
-            }
+            quantize(base.assumingMemoryBound(to: UInt8.self), w: w, h: h, rgb: rgb, steps: steps,
+                     contrast: contrast, bias: bias)
             result = ctx.makeImage()
         }
         return result
+    }
+
+    private static func quantize(_ p: UnsafeMutablePointer<UInt8>, w: Int, h: Int,
+                                 rgb: [(UInt8, UInt8, UInt8)], steps: Float, contrast: Float, bias: Float) {
+        let top: Int = rgb.count - 2
+        for y in 0..<h {
+            for x in 0..<w {
+                let i: Int = (y * w + x) * 4
+                let r: Float = Float(p[i]), g: Float = Float(p[i + 1]), b: Float = Float(p[i + 2])
+                let lum: Float = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+                let shaped: Float = (lum - 0.5) * contrast + 0.5 + bias
+                let v: Float = min(1, max(0, shaped)) * steps
+                let lo: Int = min(Int(v), top)
+                let threshold: Float = bayer8[(y & 7) * 8 + (x & 7)]
+                let c = (v - Float(lo)) > threshold ? rgb[lo + 1] : rgb[lo]
+                p[i] = c.0; p[i + 1] = c.1; p[i + 2] = c.2; p[i + 3] = 255
+            }
+        }
     }
 }
