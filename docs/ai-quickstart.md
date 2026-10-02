@@ -95,7 +95,7 @@ Rectangle()
     )
 ```
 
-Available shaders (23): `rimGlow`, `foilHolographic`, `plasmaField`, `chromaticAberration`, `audioBars`, `caustics`, `liquidMetal`, `kaleidoscope`, `truchet`, `galaxy`, `neonGrid`, `smokeFlow`, `warpTunnel`, `metaballs`, `inkFlow`, `interference`, `voronoiInk`, `monoTunnel`, … Exact args: `grep -A8 'half4 name(' Sources/SwiftRender/Shaders/*.metal`.
+Available shaders (22; the last four are vinyl/membership-specific): `rimGlow`, `foilHolographic`, `plasmaField`, `chromaticAberration`, `audioBars`, `caustics`, `liquidMetal`, `kaleidoscope`, `truchet`, `galaxy`, `neonGrid`, `smokeFlow`, `warpTunnel`, `metaballs`, `inkFlow`, `interference`, `voronoiInk`, `monoTunnel`, … Exact args: `grep -A8 'half4 name(' Sources/SwiftRender/Shaders/*.metal`.
 
 ## Writing a new shader
 

@@ -12,7 +12,7 @@ import SwiftUI
 ///
 ///   bar 0   0.00  hook — typewriter: "every frame is a pure function of t."
 ///   bar 1   1.88  four word-slams, one per beat (WRITE / A VIEW. / RENDER / AN MP4.)
-///   bar 2   3.75  23 SHADERS — 2x2 live Metal gallery, one tile per beat
+///   bar 2   3.75  22 SHADERS — 2x2 live Metal gallery, one tile per beat
 ///   bar 3   5.63  ANALYTIC SPRINGS — code card + four easings race
 ///   bar 4   7.50  3D — rotation3DEffect cards over the `monoTunnel` shader
 ///   bar 5   9.38  IT HEARS ITS OWN BEAT — FFT bars + bass ring
@@ -178,7 +178,7 @@ public struct Sizzle: AudioReactiveScene {
         let tile = CGSize(width: 880, height: 330)
         VStack(alignment: .leading, spacing: 34) {
             HStack(alignment: .firstTextBaseline, spacing: 30) {
-                Text("23 SHADERS.")
+                Text("22 SHADERS.")
                     .font(.system(size: 150, weight: .black)).fontWidth(.condensed)
                     .foregroundStyle(.white)
                 Text(".colorEffect · compiled by a SwiftPM plugin")

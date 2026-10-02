@@ -35,7 +35,7 @@ Remotion is great — and it's React rendered by **headless Chromium**, frame by
 | 1080p60 render speed | **~100–140 fps** (M-series) | typically ~15–30 fps |
 | Animation model | `t: Double` → View. That's the whole API | `useCurrentFrame()` + hooks, refs, effect deps |
 | Determinism | **Proven** — byte-identical re-renders, tested in CI | best-effort (browser, font, thread timing) |
-| GPU shaders | **Real Metal** (`.colorEffect`, 12 shaders included) | WebGL/canvas workarounds |
+| GPU shaders | **Real Metal** (`.colorEffect`, 22 shaders included) | WebGL/canvas workarounds |
 | Typography | Native SF / CoreText, SF Symbols, full blend modes | Web fonts in a browser |
 | Audio-reactive | Built-in offline FFT → `audio.band(.bass, at: t)` | `useAudioData` + visualization utils |
 | Data-driven renders | `--props file.json` (Codable) | `inputProps` ✓ |
@@ -216,6 +216,7 @@ swift run swift-render render StyleReel --audio out/reel.wav
 
 | | |
 |---|---|
+| `NeverHeard` — a 93 s narrated short: local TTS voiceover, karaoke captions, dither dissolves | `swift run swift-render render NeverHeard` |
 | `StyleLab` — one scene re-rendered 16 ways: pixel, dither, ASCII, halftone, CMYK, mosaic, LED… | `swift run swift-render render StyleLab` |
 | `SpiderNoir` — a 1-bit charcoal-and-cream noir short | `swift run swift-render render SpiderNoir` |
 | `PixelSonnet` — an 8-bit pixel-art short with a chiptune score | `swift run swift-render render PixelSonnet` |
@@ -281,7 +282,7 @@ Determinism isn't a vibe — `swift test` includes a render-twice-byte-identical
 ## Use it as a library
 
 ```swift
-.package(url: "https://github.com/skyblanket/swift-render", from: "0.7.0")
+.package(url: "https://github.com/skyblanket/swift-render", from: "0.8.1")
 ```
 
 ```swift

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `NeverHeard` — a 93 s first-person short narrated with local TTS (Kokoro, `say` fallback),
+  captions from the same Score, and `Dither` dissolves; a worked example of `speak` + `CaptionView`.
+
+### Fixed
+- Shader count corrected to 22 everywhere (README said 12, Sizzle and the quickstart said 23).
+- README install snippet points at 0.8.1.
+
 ## 0.8.1 — 2026-10-02
 
 ### Added
