@@ -142,3 +142,13 @@ public func melody(_ notes: [(Double, Note)], start: Double, bpm: Double, amp: D
         instrument.event(note, at: start + b * beat, amp: amp, duration: instrument.defaultDuration, pan: 0)
     }
 }
+
+/// A chord that swells in from silence and stops on `t` — a pitched build into a cut.
+/// Use instead of `riser`/`whoosh`: it carries the harmony and has no noise sweep.
+public func swell(_ chord: Chord, into t: Double, duration: Double = 1.5, amp: Double = 0.06) -> [ScoreEvent] {
+    let n = chord.notes.count
+    return chord.notes.enumerated().flatMap { i, note in
+        swell(note, at: t - duration, duration: duration, amp: amp,
+              pan: n > 1 ? (Double(i) / Double(n - 1) - 0.5) * 0.6 : 0)
+    }
+}

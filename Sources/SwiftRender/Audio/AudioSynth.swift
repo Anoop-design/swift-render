@@ -304,6 +304,75 @@ extension Voice {
     }
 }
 
+// MARK: - Transition marks (tick / rim / thump / blip / swell) — tonal, no noise
+
+extension Voice {
+    static func fadeIn(_ sig: inout [Float], _ seconds: Float) {
+        let n = min(sig.count, samples(seconds))
+        for i in 0..<n { sig[i] *= Float(i) / Float(max(1, n)) }
+    }
+
+    /// Woodblock tick: two inharmonic partials, gone in ~60 ms.
+    public static func tick(amp: Float = 0.18, pitch: Float = 1850) -> [Float] {
+        let n = samples(0.07)
+        let t = ramp(n, step: 1 / SR)
+        var sig = vDSP.multiply(vForce.sin(vDSP.multiply(2 * Float.pi * pitch, t)), envExp(n, rate: 85))
+        let upper = vDSP.multiply(vForce.sin(vDSP.multiply(2 * Float.pi * pitch * 1.52, t)), envExp(n, rate: 140))
+        vDSP.add(sig, vDSP.multiply(0.5, upper), result: &sig)
+        fadeIn(&sig, 0.001)
+        return vDSP.multiply(amp, sig)
+    }
+
+    /// Rim knock: 430 Hz body + 1.7 kHz ping, lightly saturated.
+    public static func rim(amp: Float = 0.22) -> [Float] {
+        let n = samples(0.10)
+        let t = ramp(n, step: 1 / SR)
+        var sig = vDSP.multiply(vForce.sin(vDSP.multiply(2 * Float.pi * 430, t)), envExp(n, rate: 55))
+        let ping = vDSP.multiply(vForce.sin(vDSP.multiply(2 * Float.pi * 1720, t)), envExp(n, rate: 120))
+        vDSP.add(sig, vDSP.multiply(0.6, ping), result: &sig)
+        sig = vForce.tanh(vDSP.multiply(1.4, sig))
+        fadeIn(&sig, 0.001)
+        return vDSP.multiply(amp, sig)
+    }
+
+    /// Felt thump: a sine falling 135 → 58 Hz with a 3 ms attack — low, round, no click.
+    public static func thump(amp: Float = 0.5) -> [Float] {
+        let n = samples(0.30)
+        var freq = vDSP.multiply(77, vForce.exp(ramp(n, step: -30 / SR)))
+        vDSP.add(58, freq, result: &freq)
+        var sig = vDSP.multiply(sweptSine(freq), envExp(n, rate: 14))
+        fadeIn(&sig, 0.003)
+        return vDSP.multiply(amp, sig)
+    }
+
+    /// Pure sine blip with a touch of octave.
+    public static func blip(_ f: Float, amp: Float = 0.12, dur: Float = 0.14) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = vForce.sin(vDSP.multiply(2 * Float.pi * f, t))
+        vDSP.add(sig, vDSP.multiply(0.18, vForce.sin(vDSP.multiply(4 * Float.pi * f, t))), result: &sig)
+        sig = vDSP.multiply(sig, envExp(n, rate: 4.2 / dur))
+        fadeIn(&sig, 0.003)
+        return vDSP.multiply(amp, sig)
+    }
+
+    /// Tonal swell: root + fifth + octave rising from silence, cut 25 ms before the end.
+    public static func swell(_ f: Float, amp: Float = 0.1, dur: Float = 1.5) -> [Float] {
+        let n = samples(dur)
+        let t = ramp(n, step: 1 / SR)
+        var sig = vForce.sin(vDSP.multiply(2 * Float.pi * f, t))
+        vDSP.add(sig, vDSP.multiply(0.45, vForce.sin(vDSP.multiply(2 * Float.pi * f * 1.5, t))), result: &sig)
+        vDSP.add(sig, vDSP.multiply(0.35, vForce.sin(vDSP.multiply(2 * Float.pi * f * 2.003, t))), result: &sig)
+        let release = samples(0.025)
+        for i in 0..<n {
+            let u = Float(i) / Float(n)
+            let tail = min(1, Float(n - 1 - i) / Float(max(1, release)))
+            sig[i] *= u * u * u * tail * amp
+        }
+        return sig
+    }
+}
+
 // MARK: - Event mixer: ducked music bus + clean kick bus, sidechain, master
 
 public struct Mixer {

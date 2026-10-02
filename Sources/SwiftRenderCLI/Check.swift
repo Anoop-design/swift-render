@@ -141,6 +141,11 @@ func audioReport(left: [Float], right: [Float], rate: Double, events: [ScoreEven
         if events.count > 40, Double(perc) / Double(events.count) > 0.75 {
             lines.append("⚠︎ mostly percussion loops — consider pads/plucks/bells for movement")
         }
+        let sweeps = (counts["whoosh"] ?? 0) + (counts["riser"] ?? 0)
+        if sweeps > 0 {
+            lines.append("⚠︎ \(sweeps) noise sweep(s) (whoosh/riser) — house rule: no swish transitions; "
+                         + "use swell/tick/rim/thump/blip or let the music mark the cut")
+        }
     }
     return lines
 }

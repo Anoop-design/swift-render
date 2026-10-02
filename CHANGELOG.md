@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.1 — 2026-10-02
+
+### Added
+- **Transition marks** — clean, noise-free alternatives to swish transitions:
+  `tick(at:)` (woodblock click), `rim(at:)` (mid knock), `thump(at:)` (soft low hit),
+  `blip(note, at:)` (pure sine), `swell(note, at:, duration:)` and
+  `swell(chord, into: t, duration:)` (a pitched build that stops on the downbeat).
+- `check` warns when a score uses noise sweeps (`whoosh`/`riser`).
+
+### Changed
+- **House rule: no swish transitions.** `StyleLab` drops its per-cut whooshes and replaces its
+  risers with chord swells. `whoosh`/`riser` remain in the API for existing scenes, but new
+  scenes should mark cuts with the music or the transition marks above.
+
 ## 0.8.0 — 2026-10-02
 
 ### Added

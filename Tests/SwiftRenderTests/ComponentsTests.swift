@@ -34,6 +34,34 @@ final class MusicTests: XCTestCase {
     }
 }
 
+final class TransitionMarkTests: XCTestCase {
+    func testMarksAreShortTonalAndDeterministic() {
+        XCTAssertLessThan(Voice.tick().count, Int(0.1 * 44_100))
+        XCTAssertLessThan(Voice.rim().count, Int(0.15 * 44_100))
+        XCTAssertEqual(Voice.thump(), Voice.thump(), "no noise source — identical every call")
+        XCTAssertEqual(Voice.blip(880)[0], 0, accuracy: 1e-6, "starts from silence (no click)")
+    }
+
+    func testSwellRisesAndStopsOnTheDownbeat() {
+        let s = Voice.swell(220, amp: 0.1, dur: 1.0)
+        func peak(_ r: Range<Int>) -> Float { s[r].map(abs).max() ?? 0 }
+        XCTAssertLessThan(peak(0..<4410), 0.002)
+        XCTAssertGreaterThan(peak(35_000..<42_000), peak(15_000..<22_000))
+        XCTAssertEqual(s[s.count - 1], 0, accuracy: 1e-6)
+        let events = swell(Chord.minor7(.a3), into: 4.0, duration: 1.5)
+        XCTAssertEqual(events.count, 4)
+        XCTAssertTrue(events.allSatisfy { abs($0.time - 2.5) < 1e-9 && abs($0.duration - 1.5) < 1e-9 })
+    }
+
+    func testStyleLabHasNoNoiseSweeps() {
+        let score = StyleLab.soundtrack(duration: StyleLab.defaultDuration)
+        let sweeps = (score?.events ?? []).filter {
+            switch $0.sound { case .whoosh, .riser: return true; default: return false }
+        }
+        XCTAssertTrue(sweeps.isEmpty)
+    }
+}
+
 final class DitherTests: XCTestCase {
     func testBayerIsAPermutation() {
         let ranks = Dither.bayer8.map { Int($0 * 64 - 0.5 + 0.001) }

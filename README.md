@@ -137,7 +137,8 @@ Scenes declare their own soundtrack — same constants drive the cuts and the
 hits, so audio/video sync is structural, not manual. The synth is pure Swift,
 deterministic, and renders a minute of audio in ~0.1s:
 
-- **Drums & FX:** kick, clap, hat, crash, 808 boom, riser, whoosh, laser — two-bus sidechain pumping
+- **Drums & FX:** kick, clap, hat, crash, 808 boom, laser — two-bus sidechain pumping
+- **Transition marks:** `tick`, `rim`, `thump`, `blip(note)`, `swell(note)` / `swell(chord, into:)` — tonal and noise-free. House rule: no swish transitions (`whoosh`/`riser` still exist for old scenes; `check` flags them)
 - **Melodic voices:** `pluck` (kalimba-ish, with echo), `bell` (FM), `pad` (detuned, slow), `chip` (25% pulse), `triBass` (round triangle), `bass`, `drone`
 - **Music theory:** note names (`.a3`, `.c5`, `Note.midi(64)`), `Chord.minor7(.a3)` & friends, `Scale.minorPentatonic.degree(i, root:)`
 - **Phrases:** `chordPad`, `strum`, `arpeggio(…, pattern: .upDown)`, `melody([(beat, note)], start:, bpm:)`
@@ -152,7 +153,7 @@ public static func soundtrack(duration: Double) -> Score? {
         hatSixteenths(from: 2.4, to: 33.6)
         bassline([.a1, .a1, .c2, .g1], from: 2.4, to: 33.6)
         crashes(at: chapters)                      // the SAME array as the Timeline
-        riser(at: 33.6, duration: 2.4)
+        swell(.minor7(.a3), into: 36.0, duration: 2.4)        // pitched build, no noise sweep
         boom(at: 36.0)
         chordPad(.minor9(.a3), at: 0, duration: 4.8)                 // harmony, not just drums
         arpeggio(.minor7(.a4), from: 2.4, to: 9.6, step: 0.15, pattern: .upDown)

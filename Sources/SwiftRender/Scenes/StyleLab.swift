@@ -72,7 +72,7 @@ public struct StyleLab: RenderScene {
         ev += melody([(1, .e5), (2.5, .a5), (4, .c6), (5.5, .b5)], start: 0, bpm: bpm, amp: 0.09)
         every(beat, from: beat, to: bar * 2) { hat(at: $0, amp: 0.05) }.forEach { ev.append($0) }
         ev += boom(at: at(1), amp: 0.4, duration: 1.4); ev += clap(at: at(1), amp: 0.14)
-        ev += riser(at: at(1), duration: bar, amp: 0.34)
+        ev += swell(Chord.minor9(.a4), into: at(2), duration: bar, amp: 0.05)
         ev += boom(at: at(2), amp: 0.6, duration: 1.6); ev += crash(at: at(2), amp: 0.2)
 
         // bass — four patterns so no bar literally repeats under a held chord
@@ -103,7 +103,6 @@ public struct StyleLab: RenderScene {
                 let off: Bool = e % 2 == 1
                 ev += hat(at: at(b, Double(e) * 0.5), amp: off ? 0.055 : 0.03, pan: off ? 0.3 : -0.3)
             }
-            ev += whoosh(at: at(b) - 0.02, rising: b % 2 == 0, amp: 0.11, duration: 0.4)
         }
         for s in 0..<4 { ev += clap(at: at(17, 3 + Double(s) * 0.25), amp: 0.12 + 0.05 * Double(s)) }
 
@@ -145,7 +144,7 @@ public struct StyleLab: RenderScene {
                 }
             default:
                 ev += arpeggio(up, from: t0, to: t1, step: beat / 4, amp: 0.075, pattern: .up)
-                ev += riser(at: t0, duration: bar, amp: 0.3)
+                ev += swell(Chord.dom7(.e4), into: t1, duration: bar, amp: 0.045)
             }
         }
 
@@ -159,7 +158,7 @@ public struct StyleLab: RenderScene {
         for e in 0..<8 { ev += hat(at: at(19, Double(e) * 0.5), amp: 0.05, pan: e % 2 == 0 ? -0.3 : 0.3) }
         ev += melody([(0, .d5), (1, .g5), (2, .a5), (3, .d5)], start: at(19), bpm: bpm, amp: 0.09)
         ev += triBass(m(43), at: at(19), amp: 0.27, duration: bar * 0.95)
-        ev += riser(at: at(19), duration: bar, amp: 0.42)
+        ev += swell(Chord.sus4(.g4), into: at(20), duration: bar, amp: 0.055)
 
         // lockup
         ev += boom(at: at(20), amp: 1.0, duration: 2.4); ev += crash(at: at(20), amp: 0.3)

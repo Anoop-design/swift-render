@@ -4,7 +4,7 @@ import Foundation
 import SwiftRender
 import SwiftUI
 
-let swiftRenderVersion = "0.8.0"
+let swiftRenderVersion = "0.8.1"
 
 // MARK: - Scene registry
 //

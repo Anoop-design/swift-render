@@ -31,6 +31,9 @@ public struct ScoreEvent: Sendable {
         case whoosh(rising: Bool)
         case pluck(Note), bell(Note), pad(Note), chip(Note), triBass(Note)
         case laser
+        /// Clean, noise-free transition marks — the house alternative to whoosh/riser sweeps.
+        case tick, rim, thump
+        case blip(Note), swell(Note)
         /// An audio file (foley, stem, a clip's soundtrack). Bypasses the kick duck.
         case sample(SampleRef)
         /// A voiceover line rendered by a local TTS engine. Ducks the music bus.
@@ -117,6 +120,31 @@ public func chip(_ note: Note, at t: Double, amp: Double = 0.1, duration: Double
 }
 public func triBass(_ note: Note, at t: Double, amp: Double = 0.3, duration: Double = 0.5, pan: Double = 0) -> [ScoreEvent] {
     [ScoreEvent(t, .triBass(note), amp: amp, duration: duration, pan: pan)]
+}
+// MARK: Transition marks — short, tonal, no noise sweeps.
+// House rule: cuts are marked with these (or with the music itself), never with
+// `whoosh`/`riser` swishes.
+
+/// Woodblock-style tick: a dry, high click for cuts and typewriter detail.
+public func tick(at t: Double, amp: Double = 0.18, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .tick, amp: amp, pan: pan)]
+}
+/// Rim knock: a short mid-range tap — a snare-side accent without the noise burst.
+public func rim(at t: Double, amp: Double = 0.22, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .rim, amp: amp, pan: pan)]
+}
+/// Soft felt thump: a low, click-free hit that lands a cut without an 808's tail.
+public func thump(at t: Double, amp: Double = 0.5, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .thump, amp: amp, pan: pan)]
+}
+/// Pure sine blip at `note` — a clean UI-style confirmation.
+public func blip(_ note: Note, at t: Double, amp: Double = 0.12, duration: Double = 0.14, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .blip(note), amp: amp, duration: duration, pan: pan)]
+}
+/// Tonal swell: `note` fades in from silence and stops dead at `t + duration` — a pitched
+/// build into a downbeat (the noise-free replacement for `riser`).
+public func swell(_ note: Note, at t: Double, duration: Double = 1.5, amp: Double = 0.1, pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .swell(note), amp: amp, duration: duration, pan: pan)]
 }
 public func laser(at t: Double, amp: Double = 0.2, duration: Double = 0.2, pan: Double = 0) -> [ScoreEvent] {
     [ScoreEvent(t, .laser, amp: amp, duration: duration, pan: pan)]
@@ -261,6 +289,16 @@ public enum ScoreSynth {
                 mixer.add(Voice.chip(Float(n.hz), amp: a, dur: d > 0 ? d : 0.18), at: e.time, pan: pan)
             case .triBass(let n):
                 mixer.add(Voice.triBass(Float(n.hz), amp: a, dur: d > 0 ? d : 0.5), at: e.time, pan: pan)
+            case .tick:
+                mixer.add(Voice.tick(amp: a), at: e.time, pan: pan)
+            case .rim:
+                mixer.add(Voice.rim(amp: a), at: e.time, pan: pan)
+            case .thump:
+                mixer.add(Voice.thump(amp: a), at: e.time, pan: pan, clean: true)
+            case .blip(let n):
+                mixer.add(Voice.blip(Float(n.hz), amp: a, dur: d > 0 ? d : 0.14), at: e.time, pan: pan)
+            case .swell(let n):
+                mixer.add(Voice.swell(Float(n.hz), amp: a, dur: d > 0 ? d : 1.5), at: e.time, pan: pan)
             case .laser:
                 mixer.add(Voice.laser(amp: a, dur: d > 0 ? d : 0.2), at: e.time, pan: pan)
             case .whoosh(let rising):

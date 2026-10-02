@@ -229,7 +229,10 @@ public static func soundtrack(duration: Double) -> Score? {
     }
 }
 ```
-Events: kick/clap/hat/crash/boom/bass/riser/drone/whoosh/laser (at:).
+Events: kick/clap/hat/crash/boom/bass/drone/laser (at:).
+Transition marks: tick/rim/thump (at:), blip(note, at:), swell(note, at:, duration:), swell(chord, into: t, duration:).
+**No swish transitions** — do not use `whoosh` or `riser` in new scenes (they are noise sweeps; `check` flags them).
+Mark a cut with the music itself, a `thump`/`rim`/`tick`, or build into it with a chord `swell`.
 Melodic: pluck/bell/pad/chip/triBass(note, at:, amp:, duration:, pan:).
 Patterns: fourOnFloor, hatSixteenths, bassline(notes:from:to:), every(interval:...).
 Render normally — the score synthesizes and muxes automatically.
