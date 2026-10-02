@@ -24,6 +24,7 @@ let sceneRunners: [String: SceneRunner] = [
     "ShaderShowcase":   SceneRunner(ShaderShowcase.self),
     "ShaderGallery":    SceneRunner(ShaderGallery.self),
     "FutureOfTheFirm":  SceneRunner(FutureOfTheFirm.self),
+    "Sizzle":           SceneRunner(Sizzle.self),
 
     // OpenEar — real-world consumer scenes living inside the repo
     "LogoReveal":       SceneRunner(LogoReveal.self),
