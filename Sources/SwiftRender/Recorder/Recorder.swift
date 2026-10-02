@@ -117,12 +117,8 @@ public final class Recorder {
             // The owned CVPixelBuffer (a Create-rule object) safely outlives the pool.
             let pixelBuffer: CVPixelBuffer? = autoreleasepool {
                 // Build a fresh view for this frame; apply PostFX wrapper at the top.
-                let rootView = ZStack {
-                    content(t)
-                }
-                .frame(width: config.size.width, height: config.size.height)
-                .environment(\.renderContext, RenderContext(size: config.size, fps: config.fps, duration: duration))
-                .modifier(PostFX(time: t, enabled: applyFX))
+                let rootView = RenderFrame(size: config.size, fps: config.fps, duration: duration,
+                                           t: t, postFX: applyFX) { content(t) }
 
                 let renderer = ImageRenderer(content: rootView)
                 renderer.scale = scaleCG
@@ -171,10 +167,8 @@ public final class Recorder {
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let rootView = ZStack { content(t) }
-            .frame(width: config.size.width, height: config.size.height)
-            .environment(\.renderContext, RenderContext(size: config.size, fps: config.fps, duration: duration))
-            .modifier(PostFX(time: t, enabled: config.postFX && postFX))
+        let rootView = RenderFrame(size: config.size, fps: config.fps, duration: duration,
+                                   t: t, postFX: config.postFX && postFX) { content(t) }
         let renderer = ImageRenderer(content: rootView)
         renderer.scale = config.scale
         guard let nsImage = renderer.nsImage,

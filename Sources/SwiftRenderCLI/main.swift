@@ -67,6 +67,9 @@ struct SceneRunner {
     let render: (Recorder, URL, Double, Double, AudioSource, URL?) async throws -> Void
     /// (recorder, outURL, t, duration, audioSource, propsURL)
     let frame: (Recorder, URL, Double, Double, AudioSource, URL?) throws -> Void
+    let ownsPostFX: Bool
+    /// (duration, audioSource, propsURL) → a time → view function (live preview).
+    let makeView: (Double, AudioSource, URL?) throws -> (Double) -> AnyView
 
     init<S: RenderScene>(_ type: S.Type) {
         defaultDuration = S.defaultDuration
@@ -84,6 +87,8 @@ struct SceneRunner {
                 S.body(at: tt, duration: dur)
             }
         }
+        ownsPostFX = S.ownsPostFX
+        makeView = { dur, _, _ in { t in AnyView(S.body(at: t, duration: dur)) } }
     }
 
     init<S: AudioReactiveScene>(_ type: S.Type) {
@@ -102,6 +107,11 @@ struct SceneRunner {
             try recorder.renderPNG(at: t, to: out, postFX: !S.ownsPostFX, duration: dur) { tt in
                 S.body(at: tt, duration: dur, audio: plan.track)
             }
+        }
+        ownsPostFX = S.ownsPostFX
+        makeView = { dur, source, _ in
+            let plan = try AudioPlan.make(source, fps: 60, needsTrack: true, needsMux: false)
+            return { t in AnyView(S.body(at: t, duration: dur, audio: plan.track)) }
         }
     }
 
@@ -123,6 +133,11 @@ struct SceneRunner {
                 S.body(at: tt, duration: dur, props: props)
             }
         }
+        ownsPostFX = S.ownsPostFX
+        makeView = { dur, _, propsURL in
+            let props = try Self.loadProps(S.Props.self, defaults: S.defaultProps, from: propsURL)
+            return { t in AnyView(S.body(at: t, duration: dur, props: props)) }
+        }
     }
 
     init<S: PropsAudioScene>(_ type: S.Type) {
@@ -143,6 +158,12 @@ struct SceneRunner {
             try recorder.renderPNG(at: t, to: out, postFX: !S.ownsPostFX, duration: dur) { tt in
                 S.body(at: tt, duration: dur, props: props, audio: plan.track)
             }
+        }
+        ownsPostFX = S.ownsPostFX
+        makeView = { dur, source, propsURL in
+            let props = try Self.loadProps(S.Props.self, defaults: S.defaultProps, from: propsURL)
+            let plan = try AudioPlan.make(source, fps: 60, needsTrack: true, needsMux: false)
+            return { t in AnyView(S.body(at: t, duration: dur, props: props, audio: plan.track)) }
         }
     }
 
@@ -206,6 +227,7 @@ struct CLIArgs {
     var postFX: Bool = true
     var cols: Int = 5
     var rows: Int = 3
+    var snapshot: String? = nil     // `preview`: write the window to PNG after layout, then exit
 }
 
 func parseArgs(_ argv: [String]) -> CLIArgs {
@@ -258,6 +280,7 @@ func parseArgs(_ argv: [String]) -> CLIArgs {
         case "--no-postfx": args.postFX = false; i += 1
         case "--cols":     args.cols = max(1, Int(v) ?? 5); i += 2
         case "--rows":     args.rows = max(1, Int(v) ?? 3); i += 2
+        case "--snapshot": args.snapshot = v; i += 2
         case "--range":
             let parts = v.split(separator: ":").compactMap { Double($0) }
             if parts.count == 2 { args.rangeStart = parts[0]; args.rangeEnd = parts[1] }
@@ -278,11 +301,13 @@ func printUsage() {
     USAGE:
       swift-render new <Scene> [--kind audio]  Scaffold Sources/SwiftRender/Scenes/<Scene>.swift
       swift-render check <Scene>            Contact sheet + blank-frame scan + audio report
+      swift-render preview <Scene>          Live window: scrub, play/pause, frame-step, audio
       swift-render render <Scene> [opts]    Render a scene to MP4
       swift-render frame <Scene> --at <t>   Render frame(s) to PNG; --at 1,2.5,4 for several
       swift-render props <Scene>            Print a scene's default props as JSON
       swift-render contact <Scene>           Render a grid contact sheet to PNG
       swift-render audio <Scene> --out x.wav Export a scene's Score as WAV
+      swift-render captions <Scene> --out x.srt  Export voiceover captions (.srt or .vtt)
       swift-render list                     List available scenes
       swift-render --help                   Show this help
       swift-render --version                Print version
@@ -303,9 +328,14 @@ func printUsage() {
       --no-postfx              Disable the global grain+vignette pass
       --preview                Half resolution, 30 fps — fast look at motion
       --open                   Open the result when done
+      --snapshot <png>         `preview` only: save the window to PNG and exit (CI/agents)
+
+    PREVIEW KEYS:
+      space play/pause · ←/→ one frame · ⇧←/⇧→ one second · home start · esc/⌘W close
 
     LOOP:
       swift-render new MyFilm && swift-render check MyFilm
+      swift-render preview MyFilm
       swift-render render MyFilm --preview --open
       swift-render render MyFilm --out out/myfilm.mp4
 
@@ -348,7 +378,7 @@ func run() async throws {
             fputs("[swift-render] \(error.localizedDescription)\n", stderr); exit(1)
         }
         return
-    case "render", "frame", "props", "contact", "audio", "check":
+    case "render", "frame", "props", "contact", "audio", "check", "preview", "captions":
         warnIfShadersStale()
     default:
         fputs("Unknown subcommand: \(args.subcommand)\n", stderr)
@@ -385,6 +415,32 @@ func run() async throws {
         audioSource = .score(score)
     } else {
         audioSource = .none
+    }
+
+    if args.subcommand == "captions" {
+        guard let score = runner.soundtrack(duration) else {
+            fputs("\(args.sceneName) declares no soundtrack\n", stderr)
+            exit(1)
+        }
+        let track = CaptionTrack(score)
+        guard !track.cues.isEmpty else {
+            fputs("\(args.sceneName) has no speak(...) lines\n", stderr)
+            exit(1)
+        }
+        let outPath = args.out == "out/render.mp4" ? "out/\(args.sceneName).srt" : args.out
+        let body = outPath.lowercased().hasSuffix(".vtt") ? track.vtt() : track.srt()
+        let url = URL(fileURLWithPath: outPath)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try body.write(to: url, atomically: true, encoding: .utf8)
+        print("[swift-render] \(track.cues.count) captions → \(outPath)")
+        return
+    }
+
+    if args.subcommand == "preview" {
+        try runPreview(runner: runner, name: args.sceneName, duration: duration, size: size,
+                       fps: args.fps, audio: audioSource, propsURL: propsURL,
+                       postFX: args.postFX && !runner.ownsPostFX, snapshot: args.snapshot)
+        return
     }
 
     if args.subcommand == "audio" {
@@ -457,6 +513,7 @@ func run() async throws {
         case .score(let score):
             let (l, r) = ScoreSynth.render(score)
             report += audioReport(left: l, right: r, rate: scoreSampleRate, events: score.events)
+            report += mediaReport(score)
         case .file(let url):
             let a = try loadAudioFile(url)
             report += audioReport(left: a.left, right: a.right, rate: a.rate, events: nil)

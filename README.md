@@ -141,6 +141,9 @@ deterministic, and renders a minute of audio in ~0.1s:
 - **Melodic voices:** `pluck` (kalimba-ish, with echo), `bell` (FM), `pad` (detuned, slow), `chip` (25% pulse), `triBass` (round triangle), `bass`, `drone`
 - **Music theory:** note names (`.a3`, `.c5`, `Note.midi(64)`), `Chord.minor7(.a3)` & friends, `Scale.minorPentatonic.degree(i, root:)`
 - **Phrases:** `chordPad`, `strum`, `arpeggio(…, pattern: .upDown)`, `melody([(beat, note)], start:, bpm:)`
+- **Samples:** `sample("foley/click.wav", at: t, amp:, pan:, rate:)` — any wav/aiff/m4a/mp3 or the audio of an mp4/mov, decoded once and cached; `rate` varispeed keeps repeats from sounding identical
+- **Voiceover:** `speak("…", at: t)` — local TTS (`say`, or Kokoro via `engine: .kokoro()`), cached by content hash so renders stay deterministic; the music ducks ~6 dB under it
+- **Texture:** `crackle(from:to:)` — vinyl surface noise bed
 
 ```swift
 public static func soundtrack(duration: Double) -> Score? {
@@ -226,17 +229,41 @@ swift run swift-render render StyleReel --audio out/reel.wav
 
 https://github.com/skyblanket/swift-render/raw/main/docs/assets/kinetic.mp4
 
+## Media — video, images, voiceover, captions
+
+```swift
+VideoClip("clips/demo.mp4", at: l)              // frame-accurate (zero-tolerance decode), loop/rate/offset
+ImageClip("art/cover.png")                      // any image file on disk
+CaptionView(captions, at: t)                    // burned-in captions, karaoke word highlight
+
+static let captions = CaptionTrack(soundtrack(duration: defaultDuration)!)   // from the speak(...) lines
+
+public static func soundtrack(duration: Double) -> Score? {
+    Score(duration: duration) {
+        sample("clips/demo.mp4", at: 0.3)       // the clip's own audio
+        speak("Every meeting, on the record.", at: 1.2)
+        sample("openear-foley/click_1.wav", at: 2.4, amp: 0.4)
+    }
+}
+```
+
+Paths resolve against the working directory, `assets/`, and the package root.
+`swift-render captions <Scene> --out film.srt` (or `.vtt`) exports the same
+captions as a sidecar. See `MediaDemo`.
+
 ## CLI
 
 ```text
 swift-render new    <Scene> [--kind audio]               scaffold an auto-registered scene
-swift-render check  <Scene>                              contact sheet + frame scan + audio report
+swift-render check  <Scene>                              contact sheet + frame scan + audio/sample/voiceover report
+swift-render preview <Scene>                             live window: scrub, play/pause, frame-step, synced audio
 swift-render render <Scene> [--duration s] [--fps n] [--aspect 16:9|9:16|1:1]
                             [--audio file] [--props file.json] [--range a:b]
                             [--preview] [--open] [--no-postfx] [--out path]
 swift-render frame  <Scene> --at <t>[,t2,…] [--out path.png]   one or several frames
 swift-render contact <Scene> [--cols n] [--rows n]       grid contact sheet
 swift-render audio  <Scene> --out score.wav              export the scene's Score
+swift-render captions <Scene> --out film.srt|.vtt        export voiceover captions
 swift-render props  <Scene>                              print default props JSON
 swift-render list                                        all registered scenes
 ```
@@ -272,6 +299,7 @@ try await recorder.render(to: url, duration: 5) { t in MyView(t: t) }
 - macOS 14+ (Apple silicon recommended; that's where the speed numbers come from)
 - Xcode 15+ toolchain. The Metal compiler is only needed when **editing** shaders (`xcodebuild -downloadComponent MetalToolchain`); a prebuilt metallib covers everything else
 - ffmpeg optional — handy for GIF/thumbnail post-processing
+- Voiceover uses macOS `say` (install Premium voices in System Settings › Accessibility › Spoken Content for better quality) or Kokoro (`tools/kokoro_tts.py` + `.venv-kokoro`)
 
 ## Roadmap
 

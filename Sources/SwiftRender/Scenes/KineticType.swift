@@ -124,18 +124,25 @@ public struct KineticType: RenderScene {
     @ViewBuilder @MainActor
     static func stackedPattern(_ t: Double) -> some View {
         VStack(spacing: -16) {
-            ForEach(0..<13, id: \.self) { row in
-                let inP = Ease.easeOut(Ease.clip(t, Double(row) * 0.035, 0.3 + Double(row) * 0.035))
-                let hot = row == 6
-                Text("PATTERN")
-                    .font(.system(size: 130, weight: .black)).fontWidth(.condensed)
-                    .foregroundStyle(hot ? Color.black : .white.opacity(0.85))
-                    .padding(.horizontal, hot ? 20 : 0)
-                    .background(hot ? Color.white : Color.clear)
-                    .offset(x: CGFloat(sin(t * 2.4 + Double(row) * 0.48)) * 240)
-                    .opacity(inP)
-            }
+            ForEach(0..<13, id: \.self) { row in patternRow(row, t) }
         }
+    }
+
+    @MainActor
+    static func patternRow(_ row: Int, _ t: Double) -> some View {
+        let r = Double(row)
+        let inP: Double = Ease.easeOut(Ease.clip(t, r * 0.035, 0.3 + r * 0.035))
+        let hot: Bool = row == 6
+        let ink: Color = hot ? Color.black : Color.white.opacity(0.85)
+        let plate: Color = hot ? Color.white : Color.clear
+        let dx: CGFloat = CGFloat(sin(t * 2.4 + r * 0.48)) * 240
+        return Text("PATTERN")
+            .font(.system(size: 130, weight: .black)).fontWidth(.condensed)
+            .foregroundStyle(ink)
+            .padding(.horizontal, hot ? 20 : 0)
+            .background(plate)
+            .offset(x: dx)
+            .opacity(inP)
     }
 
     // 04 · marquee crossfire — opposing angled strips

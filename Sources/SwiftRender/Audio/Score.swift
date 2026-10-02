@@ -31,6 +31,12 @@ public struct ScoreEvent: Sendable {
         case whoosh(rising: Bool)
         case pluck(Note), bell(Note), pad(Note), chip(Note), triBass(Note)
         case laser
+        /// An audio file (foley, stem, a clip's soundtrack). Bypasses the kick duck.
+        case sample(SampleRef)
+        /// A voiceover line rendered by a local TTS engine. Ducks the music bus.
+        case speech(SpeechSpec)
+        /// Vinyl crackle bed for `duration` seconds.
+        case crackle
     }
     public var time: Double
     public var sound: Sound
@@ -115,6 +121,27 @@ public func triBass(_ note: Note, at t: Double, amp: Double = 0.3, duration: Dou
 public func laser(at t: Double, amp: Double = 0.2, duration: Double = 0.2, pan: Double = 0) -> [ScoreEvent] {
     [ScoreEvent(t, .laser, amp: amp, duration: duration, pan: pan)]
 }
+/// Play an audio file at `t`. `path` resolves against cwd, assets/, and the package
+/// root (see AssetPaths). `amp` 1 = the file's own level; `rate` is varispeed;
+/// `offset` skips into the file; `duration` > 0 trims (with a short fade).
+public func sample(_ path: String, at t: Double, amp: Double = 1, pan: Double = 0,
+                   rate: Double = 1, offset: Double = 0, duration: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .sample(SampleRef(path, rate: rate, offset: offset)), amp: amp, duration: duration, pan: pan)]
+}
+/// Same file at several anchor times — foley on every cut.
+public func samples(_ path: String, at times: [Double], amp: Double = 1, pan: Double = 0) -> [ScoreEvent] {
+    times.flatMap { sample(path, at: $0, amp: amp, pan: pan) }
+}
+/// A voiceover line at `t`, synthesized locally and cached (see Speech). The music
+/// bus ducks ~6 dB under it. `CaptionTrack(score)` turns these into captions.
+public func speak(_ text: String, at t: Double, engine: TTSEngine = .say(), amp: Double = 1,
+                  pan: Double = 0) -> [ScoreEvent] {
+    [ScoreEvent(t, .speech(SpeechSpec(text, engine: engine)), amp: amp, pan: pan)]
+}
+/// Vinyl crackle bed from `from` to `to` (fades in and out over `fade`).
+public func crackle(from: Double, to: Double, amp: Double = 0.04) -> [ScoreEvent] {
+    [ScoreEvent(from, .crackle, amp: amp, duration: max(0, to - from))]
+}
 public func whoosh(at t: Double, rising: Bool = true, amp: Double = 0.5,
                    duration: Double = 0.7) -> [ScoreEvent] {
     [ScoreEvent(t, .whoosh(rising: rising), amp: amp, duration: duration)]
@@ -193,9 +220,16 @@ public enum ScoreSynth {
         UInt32((index &* 31 &+ Int(time * 1000)) & 0x7FFF_FFFF)
     }
 
-    /// Render a score to stereo Float samples (44.1 kHz).
-    public static func render(_ score: Score) -> (left: [Float], right: [Float]) {
+    /// Render a score to stereo Float samples (44.1 kHz). `normalize: false`
+    /// skips the final peak normalization (stems, external mixing, calibration).
+    public static func render(_ score: Score, normalize: Bool = true) -> (left: [Float], right: [Float]) {
         var mixer = Mixer(duration: score.duration)
+        let lines = score.events.compactMap { e -> SpeechSpec? in
+            if case .speech(let s) = e.sound { return s }; return nil
+        }
+        if !lines.isEmpty {
+            do { try Speech.prepare(lines) } catch { warnOnce("\(error)") }
+        }
         for (i, e) in score.events.enumerated() {
             let a = Float(e.amp)
             let d = Float(e.duration)
@@ -231,9 +265,31 @@ public enum ScoreSynth {
                 mixer.add(Voice.laser(amp: a, dur: d > 0 ? d : 0.2), at: e.time, pan: pan)
             case .whoosh(let rising):
                 mixer.add(Voice.whoosh(amp: a, dur: d > 0 ? d : 0.7, rising: rising, seed: 10 + seed(i, e.time) % 13), at: e.time, pan: pan)
+            case .sample(let ref):
+                do {
+                    let b = SampleLibrary.shaped(try SampleLibrary.load(ref.path), rate: ref.rate,
+                                                 offset: ref.offset, duration: e.duration)
+                    mixer.addStereo(b.left, b.right, at: e.time, gain: a, pan: pan, clean: true)
+                } catch { warnOnce("\(error)") }
+            case .speech(let spec):
+                do {
+                    let b = try Speech.buffer(spec)
+                    mixer.addVoice(b.left, b.right, at: e.time, gain: a, pan: pan)
+                } catch { warnOnce("\(error)") }
+            case .crackle:
+                let (l, r) = Voice.crackle(amp: a, dur: d > 0 ? d : 4, seed: 70 + seed(i, e.time) % 17)
+                mixer.addStereo(l, r, at: e.time, gain: 1, pan: pan, clean: true)
             }
         }
-        return mixer.master()
+        return mixer.master(normalize: normalize)
+    }
+
+    private static let warned = LockedCache<String, Bool>()
+    static func warnOnce(_ message: String) {
+        _ = warned.value(message) {
+            fputs("[swift-render] WARN: \(message)\n", stderr)
+            return true
+        }
     }
 
     /// Render and write a 16-bit stereo WAV.

@@ -368,19 +368,21 @@ public struct LaunchFilm: AudioReactiveScene {
 
     @MainActor
     static func card3D(_ label: String, angle: Double, depth: Int) -> some View {
-        RoundedRectangle(cornerRadius: 22)
-            .fill(.black.opacity(0.75))
-            .stroke(volt, lineWidth: 2.5)
-            .frame(width: 330, height: 430)
-            .overlay(
-                Text(label)
-                    .font(.system(size: 44, weight: .black)).fontWidth(.condensed)
-                    .foregroundStyle(.white)
-            )
-            .rotation3DEffect(.degrees(sin(angle * .pi / 180) * 32),
-                              axis: (x: 0, y: 1, z: 0), perspective: 0.65)
+        let yaw: Double = sin(angle * .pi / 180) * 32
+        let dy: CGFloat = CGFloat(depth - 1) * 14
+        let shape = RoundedRectangle(cornerRadius: 22)
+        let face = ZStack {
+            shape.fill(Color.black.opacity(0.75))
+            shape.stroke(volt, lineWidth: 2.5)
+            Text(label)
+                .font(.system(size: 44, weight: .black)).fontWidth(.condensed)
+                .foregroundStyle(Color.white)
+        }
+        .frame(width: 330, height: 430)
+        return face
+            .rotation3DEffect(.degrees(yaw), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
             .rotation3DEffect(.degrees(6), axis: (x: 1, y: 0, z: 0), perspective: 0.4)
-            .offset(y: CGFloat(depth - 1) * 14)
+            .offset(y: dy)
             .shadow(color: volt.opacity(0.25), radius: 30)
     }
 

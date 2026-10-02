@@ -138,7 +138,9 @@ swift run swift-render render <Scene>          # render with defaults
 
 swift run swift-render list                    # show registered scenes
 swift run swift-render new <Scene>             # scaffold an auto-registered scene
-swift run swift-render check <Scene>           # contact sheet + audio report (review step)
+swift run swift-render check <Scene>           # contact sheet + audio/sample/voiceover report (review step)
+swift run swift-render preview <Scene>         # live window for humans: scrub, play, ←/→ frame-step, audio
+swift run swift-render captions <Scene> --out out/x.srt   # voiceover captions sidecar (.srt / .vtt)
 ```
 
 ## The loop an agent should follow when asked to "make a video"
@@ -292,6 +294,38 @@ Writing your own look: read the grid, batch shapes into ONE `Path`, fill once (6
 fill is far faster than 6,000 fills). Ink-on-paper looks need a tone lift (`pow(lum, 0.5)`) on dark scenes
 or they read as negatives. `StyleLab.swift` is the worked example.
 
+## Samples, voiceover, captions
+
+```swift
+public static func soundtrack(duration: Double) -> Score? {
+    Score(duration: duration) {
+        chordPad(.minor7(.a3), at: 0, duration: duration)
+        sample("openear-foley/click_1.wav", at: 1.2, amp: 0.4, pan: 0.2)   // foley one-shot
+        sample("clips/demo.mp4", at: 3.0, amp: 0.6)                       // a clip's own audio
+        speak("Every meeting, on the record.", at: 0.8)                   // local TTS, cached
+        crackle(from: 0, to: 4)                                            // vinyl bed
+    }
+}
+static let captions = CaptionTrack(soundtrack(duration: defaultDuration)!)
+// in body:  CaptionView(captions, at: t).frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 90)
+```
+
+- Paths resolve against cwd, `assets/`, the package root (see `AssetPaths`). `check` lists any missing file.
+- `amp: 1` plays a sample at its own level, before the master normalizes; foley usually wants 0.1–0.5.
+- Repeated one-shots: vary `rate:` 0.95–1.05 (and pick among several files) so typing/ticks don't machine-gun.
+- `speak` defaults to macOS `say`; `engine: .say(voice: "Daniel", wpm: 185)` or `.kokoro(voice: "af_heart")` for better voices. First render synthesizes (~1–3 s/line), then it's cached in `~/Library/Caches/swift-render/tts`.
+- Leave ~0.3 s between `speak` lines — check the `voiceover:` line in the report for total speech time.
+
+## Video and image clips
+
+```swift
+VideoClip("clips/demo.mp4", at: l)                          // l = seconds into the clip
+VideoClip("clips/demo.mp4", at: l, rate: 0.5, loop: true, contentMode: .fit)
+ImageClip("art/cover.png")
+```
+
+Frames are decoded with zero time tolerance (the same frame every render). Add the clip's sound with `sample(path, at: clipStart)`.
+
 ## Gotchas learned the hard way
 
 - **Thin strokes vanish** when anything renders below 1:1 (dither at 1/3, contact thumbs): use ≥5 px lines for webs, rain, outlines.
@@ -299,3 +333,4 @@ or they read as negatives. `StyleLab.swift` is the worked example.
 - **Text inside a dithered/pixelated layer gets crunchy** — put subtitles in a crisp overlay above `Dither.render`.
 - **Timeline transitions overlap**: the timeline ends earlier than the sum of clip lengths. Give the last clip `duration` and let it be trimmed.
 - **Contact sheets sample shot midpoints**; if a frame you care about sits exactly on a cut, use `frame --at`.
+- **Big SwiftUI expressions time out on CI's older compiler.** Give intermediate values explicit types, pull per-row views into their own functions, and run `scripts/typecheck-budget.sh` before pushing.

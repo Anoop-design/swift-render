@@ -2,14 +2,13 @@ import SwiftUI
 
 /// OpenEarLaunch — 45.6s launch film for OpenEar's on-device meeting notes.
 ///
-///   swift run swift-render audio  OpenEarLaunch --out out/oel_music.wav
-///   python3 tools/openear_launch_mix.py out/oel_music.wav out/oel_mix.wav
-///   swift run swift-render render OpenEarLaunch --audio out/oel_mix.wav --out out/openear_launch.mp4
+///   swift run swift-render render OpenEarLaunch --out out/openear_launch.mp4
 ///
 /// Brand: jet-black stage, cream ink, Inter Display + mono, the red record dot,
 /// and the record-store idiom from openear.fyi (SIDE A, OE · 0001, the ledger).
-/// 100 BPM, nineteen 2.4s bars. Foley cue times live in tools/openear_launch_mix.py
-/// and are derived from the same section starts as `sections` below.
+/// 100 BPM, nineteen 2.4s bars. The score carries the music *and* the foley:
+/// one-shots in assets/openear-foley, sliced from the HunyuanVideo-Foley passes
+/// made for the OpenEar launch, placed on the same section starts as the visuals.
 public struct OpenEarLaunch: RenderScene {
     public static let defaultDuration: Double = 45.6
 
@@ -47,7 +46,7 @@ public struct OpenEarLaunch: RenderScene {
         return x - floor(x)
     }
 
-    // MARK: soundtrack (music only — foley is laid on by tools/openear_launch_mix.py)
+    // MARK: soundtrack — music + foley
 
     public static func soundtrack(duration: Double) -> Score? {
         var ev: [ScoreEvent] = []
@@ -138,6 +137,59 @@ public struct OpenEarLaunch: RenderScene {
         ev += triBass(m(41), at: at(17, 0), amp: 0.24, duration: bar * 2)
         for (i, n) in [72, 75, 79, 82, 84].enumerated() { ev += bell(m(n), at: at(17, 1) + Double(i) * 0.3, amp: 0.085, duration: 2.0, pan: Double(i - 2) * 0.2) }
         ev += bell(m(91), at: at(18, 0), amp: 0.06, duration: 2.0)
+
+        // Foley. `db` is relative to the mastered music (calibrated against the original mix: amp = 1.1·10^((db−3)/20)).
+        func fx(_ name: String, _ t: Double, _ db: Double, pan: Double = 0, rate: Double = 1) {
+            ev += sample("openear-foley/\(name).wav", at: t, amp: 1.1 * Foundation.pow(10, (db - 3) / 20),
+                         pan: pan, rate: rate)
+        }
+        func typing(_ t0: Double, _ chars: Int, _ cps: Double, every: Int, _ db: Double, keys: Bool = false, seed: Int) {
+            for c in stride(from: 0, to: chars, by: every) {
+                let k = seed * 1000 + c
+                let name = keys ? "key_\(1 + Int(h(k) * 15) % 15)" : "tick_\(5 + Int(h(k) * 6) % 6)"
+                fx(name, t0 + Double(c) / cps, db + h(k + 500) * 4 - 2.5,
+                   pan: (h(k + 900) - 0.5) * 0.5, rate: 0.95 + 0.1 * h(k + 77))
+            }
+        }
+        // A · needle drop
+        ev += crackle(from: 0, to: 4.7, amp: 0.026)
+        fx("click_1", 1.12, -6); fx("card_1", 1.13, -12); fx("swish_1", 4.2, -8)
+        // B · the problem
+        fx("key_1", 4.85, -9); fx("key_3", 6.0, -9); fx("key_5", 7.25, -9)
+        fx("card_2", 7.72, -11, pan: 0.3); fx("click_3", 8.55, -7); fx("key_7", 8.56, -10)
+        fx("swish_2", 9.1, -15, pan: 0.3)
+        // C · logo
+        fx("card_4", 9.6, -11)
+        // D · calendar
+        fx("swish_2", 12.0, -13, pan: 0.25)
+        for (i, t) in [12.5, 12.8, 13.1, 13.4].enumerated() { fx("card_\(i + 1)", t, -10, pan: 0.25) }
+        // E · notch
+        fx("card_5", 17.0, -9); fx("click_2", 18.7, -4, pan: 0.2); fx("card_6", 19.15, -13)
+        // F · both sides
+        typing(21.8, 36, 40, every: 2, -19, seed: 3); typing(22.85, 43, 44, every: 2, -19, seed: 4)
+        // G · notes
+        fx("click_4", 24.45, -4, pan: 0.2); fx("card_3", 24.95, -11); fx("swish_1", 25.35, -15)
+        typing(25.65, 130, 72, every: 3, -21, seed: 5)
+        for (i, t) in [27.2, 27.45, 27.7].enumerated() { fx("card_\(i + 4)", t, -11, pan: 0.2) }
+        fx("click_5", 28.3, -7, pan: 0.2)
+        // H · ask
+        fx("click_1", 29.0, -14)
+        typing(29.2, 34, 27, every: 1, -12, keys: true, seed: 6)
+        fx("card_5", 30.75, -10); fx("swish_2", 30.75, -17)
+        typing(30.9, 100, 62, every: 3, -21, seed: 7)
+        // I · ledger
+        fx("swish_1", 33.75, -11, pan: 0.25)
+        for i in 0..<5 { fx("tick_\(i % 4 + 1)", 34.5 + 0.3 * Double(i), -9, pan: 0.25) }
+        fx("card_6", 36.15, -9, pan: 0.25); fx("tick_2", 36.45, -14, pan: 0.25)
+        fx("click_1", 36.75, -3, pan: 0.25); fx("card_1", 36.76, -7, pan: 0.25)
+        for t in [36.6, 37.2, 37.8] { fx("key_12", t, -15, pan: -0.2) }
+        // J · dictation
+        fx("key_9", 38.7, -5); typing(38.85, 58, 58, every: 3, -21, seed: 8)
+        fx("key_11", 39.85, -7); fx("click_5", 39.95, -11)
+        // K · end card
+        fx("swish_1", 40.85, -11, pan: -0.2); fx("swish_2", 41.25, -13, pan: -0.3)
+        fx("card_2", 43.15, -9, pan: -0.1); fx("click_3", 45.0, -15)
+        ev += crackle(from: 40.8, to: 45.6, amp: 0.023)
 
         return Score(duration: duration) { ev }
     }

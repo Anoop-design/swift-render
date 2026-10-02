@@ -1,6 +1,45 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-10-02
+
+### Added
+- **Samples in the Score** — `sample(path, at:, amp:, pan:, rate:, offset:, duration:)` plays any
+  wav/aiff/caf/m4a/mp3 or the audio track of an mp4/mov. Decoded once to 44.1 kHz stereo and
+  cached; routed around the kick duck. `samples(path, at: [t])` for anchors.
+- **Voiceover** — `speak("…", at: t, engine: .say(voice:wpm:) | .kokoro(voice:))`. Lines are
+  synthesized locally on first use and cached by content hash (`~/Library/Caches/swift-render/tts`),
+  so renders stay deterministic. The music bus ducks ~6 dB under speech.
+- **Captions** — `CaptionTrack(score)` builds timed cues from the `speak` lines (voiced span of
+  the rendered audio, word timing by length + punctuation, balanced line splits);
+  `CaptionView(track, at: t)` burns them in with a karaoke highlight;
+  `swift-render captions <Scene> --out x.srt|.vtt` exports a sidecar.
+- **Video & image clips** — `VideoClip(path, at:, rate:, offset:, loop:, contentMode:)` with
+  zero-tolerance frame decode; `ImageClip(path)`; `MediaLibrary` for raw frames/durations;
+  `AssetPaths` resolves scene paths (cwd, assets/, package root).
+- **`swift-render preview <Scene>`** — live window: scrubber, play/pause (space), frame-step (←/→,
+  ⇧ for 1 s), timecode/frame readout, synced audio. `--snapshot out.png` captures the window and exits.
+- `crackle(from:to:)` vinyl bed voice; `ScoreSynth.render(_:normalize:)` for un-normalized stems.
+- `RenderFrame` — the one frame wrapper (size, render context, PostFX) shared by recorder,
+  PNG frames and preview.
+- `check` reports samples (and missing files) and voiceover (lines, seconds, caption cues).
+- `scripts/typecheck-budget.sh` + CI step — flags expressions/functions slow to type-check
+  before CI's older compiler rejects them.
+- `MediaDemo` scene; `assets/demo/clip.mp4`; tests for samples, captions, voiceover, video frames.
+
+### Changed
+- `OpenEarLaunch` carries its foley in its own Score (`assets/openear-foley`) —
+  `tools/openear_launch_mix.py` is gone; `check` now reports the real mix.
+- Split the four slowest type-check spots (Kinetic, KineticType, LaunchFilm).
+
+## 0.6.0 — 2026-10-02
+
+- Scene registry generated at build time (SceneRegistryPlugin) — no hand-edited dictionary.
+- MetalCompilerPlugin falls back to `Shaders/prebuilt.metallib` without the Metal toolchain.
+- CLI: `new`, `check`, `frame --at a,b,c`, `render --preview --open`; contact sheets sample shot midpoints.
+- `Music.swift` (notes, chords, scales, instruments, phrases); `Dither`, `PixelCanvas`, `PixelFont`.
+- PostFX opaque base; CI on macos-15.
+
+## Earlier, between 0.5.0 and 0.6.0
 
 - LaunchFilm2, StyleReel, StyleReelVertical now score themselves in Swift —
   the Python soundtrack sidecars (make_launch/reel/kinetic_audio.py) are gone

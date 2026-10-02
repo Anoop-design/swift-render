@@ -273,6 +273,37 @@ extension Voice {
     }
 }
 
+// MARK: - Texture voices
+
+extension Voice {
+    /// Vinyl crackle: sparse decaying pops + a little surface hiss, faded in/out.
+    /// Returns a decorrelated stereo pair.
+    public static func crackle(amp: Float = 0.04, dur: Float = 4, seed: UInt32 = 71) -> ([Float], [Float]) {
+        let n = samples(dur)
+        guard n > 0 else { return ([], []) }
+        var g = NoiseLCG(seed: seed)
+        var x = [Float](repeating: 0, count: n)
+        let popRate = 38.0 / Double(SR)
+        for i in 0..<n where Double(g.uniform()) < popRate {
+            let a = -Foundation.log(g.uniform()) * 0.35 * (g.uniform() < 0.5 ? -1 : 1)
+            for k in 0..<24 where i + k < n { x[i + k] += a * Foundation.exp(-Float(k) / 4) }
+        }
+        x = diff1(x)
+        let hiss = NoiseLCG.randn(n, seed: seed &+ 1)
+        for i in 0..<n { x[i] += hiss[i] * 0.012 }
+        let peak = max(1e-6, vDSP.maximumMagnitude(x))
+        let fade = min(n / 2, samples(0.6))
+        var l = [Float](repeating: 0, count: n), r = l
+        for i in 0..<n {
+            var e: Float = 1
+            if i < fade { e = Float(i) / Float(fade) } else if i >= n - fade { e = Float(n - 1 - i) / Float(fade) }
+            l[i] = x[i] / peak * amp * e
+            r[i] = x[(i + 37) % n] / peak * amp * e
+        }
+        return (l, r)
+    }
+}
+
 // MARK: - Event mixer: ducked music bus + clean kick bus, sidechain, master
 
 public struct Mixer {
@@ -280,6 +311,8 @@ public struct Mixer {
     var L: [Float], R: [Float]                            // music bus (ducked)
     var KL: [Float], KR: [Float]                          // clean bus (kicks/booms)
     public private(set) var kickTimes: [Double] = []
+    /// (start, end) of voiceover lines — the music bus ducks under them.
+    public private(set) var voiceSpans: [(Double, Double)] = []
 
     public init(duration: Double) {
         n = Int(duration * Double(SR))
@@ -307,6 +340,27 @@ public struct Mixer {
             Self.mixInto(&R, sig, at: i, count: m, gain: 1 + min(0, pan))
         }
     }
+    /// Stereo source (samples, voiceover) with a pan that balances L/R.
+    public mutating func addStereo(_ l: [Float], _ r: [Float], at t: Double, gain: Float = 1,
+                                   pan: Float = 0, clean: Bool = true) {
+        let i = Int(t * Double(SR))
+        guard i >= 0, i < n else { return }
+        let m = min(l.count, n - i)
+        guard m > 0 else { return }
+        let gl = gain * (1 - max(0, pan)), gr = gain * (1 + min(0, pan))
+        if clean {
+            Self.mixInto(&KL, l, at: i, count: m, gain: gl)
+            Self.mixInto(&KR, r, at: i, count: m, gain: gr)
+        } else {
+            Self.mixInto(&L, l, at: i, count: m, gain: gl)
+            Self.mixInto(&R, r, at: i, count: m, gain: gr)
+        }
+    }
+    /// Voiceover onto the clean bus; its span ducks the music bus ~6 dB.
+    public mutating func addVoice(_ l: [Float], _ r: [Float], at t: Double, gain: Float = 1, pan: Float = 0) {
+        addStereo(l, r, at: t, gain: gain, pan: pan, clean: true)
+        voiceSpans.append((t, t + Double(l.count) / Double(SR)))
+    }
     /// Kick onto the clean bus; its onset also drives the sidechain pump.
     public mutating func addKick(_ sig: [Float], at t: Double, pan: Float = 0) {
         add(sig, at: t, pan: pan, clean: true)
@@ -314,13 +368,24 @@ public struct Mixer {
     }
 
     /// duck → sum buses → tanh(×1.15) → fade-out → normalize to `peak`.
-    public func master(fadeOut: Double = 1.2, peak: Float = 0.92) -> (left: [Float], right: [Float]) {
+    public func master(fadeOut: Double = 1.2, peak: Float = 0.92, normalize: Bool = true) -> (left: [Float], right: [Float]) {
         var duck = [Float](repeating: 1, count: n)
         let dn = samples(0.42)
         let curve = (0..<dn).map { 1 - 0.5 * Foundation.exp(-Float($0) / SR / 0.11) }
         for t in kickTimes {
             let i0 = Int(t * Double(SR))
             for j in 0..<max(0, min(dn, n - i0)) { duck[i0 + j] = min(duck[i0 + j], curve[j]) }
+        }
+        let vAttack = Double(SR) * 0.08, vRelease = Double(SR) * 0.3
+        for (a, b) in voiceSpans {
+            let s0 = max(0, Int(a * Double(SR) - vAttack)), e0 = min(n, Int(b * Double(SR) + vRelease))
+            guard s0 < e0 else { continue }
+            let a0 = Double(a) * Double(SR), b0 = Double(b) * Double(SR)
+            for j in s0..<e0 {
+                let x = Double(j)
+                let ramp = x < a0 ? 1 - (a0 - x) / vAttack : (x > b0 ? 1 - (x - b0) / vRelease : 1)
+                duck[j] = min(duck[j], Float(1 - 0.5 * max(0, min(1, ramp))))
+            }
         }
         func renderBus(_ music: [Float], _ clean: [Float]) -> [Float] {
             var ch = vDSP.multiply(music, duck)
@@ -334,7 +399,7 @@ public struct Mixer {
             left[n - fn + j] *= g; right[n - fn + j] *= g
         }
         let m = max(vDSP.maximumMagnitude(left), vDSP.maximumMagnitude(right))
-        if m > 0 {
+        if normalize, m > 0 {
             left = vDSP.multiply(peak / m, left)
             right = vDSP.multiply(peak / m, right)
         }

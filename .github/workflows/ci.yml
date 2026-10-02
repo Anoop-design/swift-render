@@ -15,3 +15,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Type-check budget (report-only)
+        run: scripts/typecheck-budget.sh 300 900

@@ -302,9 +302,9 @@ public struct Kinetic: RenderScene {
     /// Two-ish-frame white flash at every movement boundary.
     @MainActor
     static func flash(_ t: Double) -> some View {
-        let hit = [segB, segC, segD, segE]
-            .map { max(0, 1 - abs(t - $0) / 0.07) }
-            .max() ?? 0
+        let cuts: [Double] = [segB, segC, segD, segE]
+        let pulses: [Double] = cuts.map { (c: Double) -> Double in max(0, 1 - abs(t - c) / 0.07) }
+        let hit: Double = pulses.max() ?? 0
         return Color.white.opacity(hit * 0.9).ignoresSafeArea()
     }
 }

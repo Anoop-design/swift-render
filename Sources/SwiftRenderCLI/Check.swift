@@ -125,10 +125,15 @@ func audioReport(left: [Float], right: [Float], rate: Double, events: [ScoreEven
         var counts: [String: Int] = [:]
         var pitched = Set<String>()
         for e in events {
-            let d = String(describing: e.sound)
-            let kind = String(d.prefix(while: { $0 != "(" }))
-            counts[kind, default: 0] += 1
-            if d.contains("(") { pitched.insert(d) }
+            switch e.sound {
+            case .sample: counts["sample", default: 0] += 1
+            case .speech: counts["speech", default: 0] += 1
+            default:
+                let d = String(describing: e.sound)
+                let kind = String(d.prefix(while: { $0 != "(" }))
+                counts[kind, default: 0] += 1
+                if d.contains("(") { pitched.insert(d) }
+            }
         }
         lines.append("events: " + counts.sorted { $0.value > $1.value }.map { "\($0.key)×\($0.value)" }.joined(separator: " "))
         let perc = (counts["hat"] ?? 0) + (counts["kick"] ?? 0) + (counts["clap"] ?? 0)
@@ -209,4 +214,26 @@ func scaffoldScene(name: String, kind: String) throws -> URL {
     """
     try src.write(to: url, atomically: true, encoding: .utf8)
     return url
+}
+
+/// Samples and voiceover: missing files, speech coverage, caption cues.
+func mediaReport(_ score: Score) -> [String] {
+    var lines: [String] = []
+    let refs = Set(score.events.compactMap { e -> String? in
+        if case .sample(let r) = e.sound { return r.path }; return nil
+    })
+    if !refs.isEmpty {
+        let missing = refs.filter { AssetPaths.resolve($0) == nil }.sorted()
+        lines.append("samples: \(refs.count) files" + (missing.isEmpty ? " · all found" : " · ⚠︎ missing: " + missing.joined(separator: ", ")))
+    }
+    let speech = score.events.compactMap { e -> SpeechSpec? in
+        if case .speech(let s) = e.sound { return s }; return nil
+    }
+    if !speech.isEmpty {
+        let secs = speech.reduce(0.0) { $0 + ((try? Speech.buffer($1).duration) ?? 0) }
+        let cues = CaptionTrack(score).cues.count
+        lines.append(String(format: "voiceover: %d lines · %.1fs of speech · %d caption cues (swift-render captions)",
+                            speech.count, secs, cues))
+    }
+    return lines
 }
