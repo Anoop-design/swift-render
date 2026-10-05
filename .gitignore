@@ -7,3 +7,5 @@ Package.resolved
 *.xcodeproj
 .idea
 out/
+__pycache__/
+*.pyc

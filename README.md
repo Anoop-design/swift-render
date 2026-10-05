@@ -14,6 +14,14 @@
 
 </div>
 
+> **This fork includes the [SwiftRender Codex plugin](codex-plugin/README.md).**
+> Use your app's actual SwiftUI views, native artwork, and Metal effects to make
+> launch videos. The plugin adds source inspection, film direction, native render
+> setup, and verification. Development and contributions for the plugin live in
+> [Anoop-design/swift-render](https://github.com/Anoop-design/swift-render).
+> The renderer is based on [skyblanket/swift-render](https://github.com/skyblanket/swift-render)
+> and retains its MIT license and attribution.
+
 https://github.com/skyblanket/swift-render/raw/main/docs/assets/launch-film.mp4
 
 > **The 55-second launch film above is one Swift file** ([`LaunchFilm.swift`](Sources/SwiftRender/Scenes/LaunchFilm.swift)) — Timeline sequencing, springs, four live Metal shaders, 3D, an audio-reactive segment, and a synthesized soundtrack. Written by an AI, **3,450 frames rendered in 29 seconds** on a MacBook. Click ▶. Sound on.
@@ -282,8 +290,15 @@ Determinism isn't a vibe — `swift test` includes a render-twice-byte-identical
 ## Use it as a library
 
 ```swift
-.package(url: "https://github.com/skyblanket/swift-render", from: "0.8.1")
+.package(
+    url: "https://github.com/Anoop-design/swift-render",
+    revision: "a63f3d5f846d17b127faff803a7b9d5c368c16d0"
+)
 ```
+
+This pins the verified renderer revision. Its CLI reports 0.8.1, but upstream
+has no matching 0.8.1 Git tag as of 2026-10-06; a `from: "0.8.1"` requirement
+does not resolve. Update the revision deliberately after validating a newer one.
 
 ```swift
 import SwiftRender

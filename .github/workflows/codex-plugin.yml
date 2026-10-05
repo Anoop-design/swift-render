@@ -1,0 +1,44 @@
+name: Codex plugin
+
+on:
+  push:
+    paths: ['codex-plugin/**', 'tools/plugin/**', '.agents/plugins/marketplace.json', '.github/workflows/codex-plugin.yml']
+  pull_request:
+    paths: ['codex-plugin/**', 'tools/plugin/**', '.agents/plugins/marketplace.json', '.github/workflows/codex-plugin.yml']
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: python3 -m unittest discover -s codex-plugin/tests -v
+      - run: python3 -m unittest discover -s tools/plugin -p 'test_*.py' -v
+      - run: python3 tools/plugin/validate.py codex-plugin
+      - run: python3 tools/plugin/package.py codex-plugin --output out/swift-render-plugin.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swift-render-codex-plugin
+          path: out/swift-render-plugin.zip
+
+  native-smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize and build the bundled starter
+        run: |
+          python3 codex-plugin/skills/app-launch-video/scripts/launch.py init --output "$RUNNER_TEMP/launch-film"
+          swift build --package-path "$RUNNER_TEMP/launch-film"
+          swiftc -parse-as-library codex-plugin/skills/app-launch-video/scripts/verify_movie.swift -o "$RUNNER_TEMP/swiftrender-verify"
+      - name: Export and decode a portrait movie
+        run: |
+          swift run --package-path "$RUNNER_TEMP/launch-film" launch-film render --output "$RUNNER_TEMP/portrait.mp4" --width 320 --height 568 --duration 2 --fps 12
+          "$RUNNER_TEMP/swiftrender-verify" "$RUNNER_TEMP/portrait.mp4" --width 320 --height 568 --fps 12 --frames 24 --audio absent
+      - name: Reject a wrong frame count
+        run: |
+          if "$RUNNER_TEMP/swiftrender-verify" "$RUNNER_TEMP/portrait.mp4" --width 320 --height 568 --fps 12 --frames 23 --audio absent; then
+            echo "Verifier accepted an incorrect frame count" >&2
+            exit 1
+          fi

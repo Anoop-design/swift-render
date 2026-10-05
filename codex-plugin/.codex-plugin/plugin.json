@@ -1,0 +1,23 @@
+{
+  "name": "swift-render",
+  "version": "0.1.0",
+  "description": "Create launch videos from the actual SwiftUI, UIKit, AppKit, Metal, and artwork in an Apple app repository.",
+  "author": { "name": "Anoop" },
+  "repository": "https://github.com/Anoop-design/swift-render",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "SwiftRender",
+    "shortDescription": "Turn your Swift app into a launch video",
+    "longDescription": "Build native launch films from an Apple app's own code and assets. Inspect the app, adapt real components to deterministic film time, choreograph motion and a continuous soundtrack, review previews, and export multiple compositions. Rendering requires a local Mac and the Apple development tools. Includes source inventory and provenance checks plus a native SwiftRender starter. App-specific adapters are authored by Codex; arbitrary app targets are not automatically portable to macOS.",
+    "developerName": "Anoop",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Make a launch video from this app's real Swift code and assets.",
+      "Revise the pacing and music in my existing SwiftRender film.",
+      "Adapt this launch film for vertical and 4:3 compositions."
+    ],
+    "brandColor": "#F07746"
+  }
+}
