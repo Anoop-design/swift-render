@@ -1,0 +1,17 @@
+name: SwiftRender Studio
+
+on:
+  push:
+    paths: ['Sources/StudioCore/**', 'Sources/SwiftRenderStudio/**', 'Tests/StudioCoreTests/**', 'tools/studio/**', 'Package.swift', '.github/workflows/studio.yml']
+  pull_request:
+    paths: ['Sources/StudioCore/**', 'Sources/SwiftRenderStudio/**', 'Tests/StudioCoreTests/**', 'tools/studio/**', 'Package.swift', '.github/workflows/studio.yml']
+
+jobs:
+  native-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build --product swift-render-studio
+      - run: swift test --filter StudioCoreTests
+      - run: python3 tools/studio/build.py --debug --skip-build
+      - run: codesign --verify --deep --strict 'out/SwiftRender Studio.app'

@@ -22,6 +22,19 @@
 > The renderer is based on [skyblanket/swift-render](https://github.com/skyblanket/swift-render)
 > and retains its MIT license and attribution.
 
+### Native Mac app
+
+[SwiftRender Studio](docs/studio.md) is a native SwiftUI interface for choosing an
+app codebase, preparing a film workspace and Codex brief, and rendering and
+previewing the adapted film. It includes an immediately runnable sample project.
+
+```sh
+python3 tools/studio/build.py --open
+```
+
+The resulting `out/SwiftRender Studio.app` bundles the plugin workflow. It uses
+your Mac's Xcode tools for source inspection and native rendering.
+
 https://github.com/skyblanket/swift-render/raw/main/docs/assets/launch-film.mp4
 
 > **The 55-second launch film above is one Swift file** ([`LaunchFilm.swift`](Sources/SwiftRender/Scenes/LaunchFilm.swift)) — Timeline sequencing, springs, four live Metal shaders, 3D, an audio-reactive segment, and a synthesized soundtrack. Written by an AI, **3,450 frames rendered in 29 seconds** on a MacBook. Click ▶. Sound on.

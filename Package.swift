@@ -7,8 +7,12 @@ let package = Package(
     products: [
         .library(name: "SwiftRender", targets: ["SwiftRender"]),
         .executable(name: "swift-render", targets: ["SwiftRenderCLI"]),
+        .executable(name: "swift-render-studio", targets: ["SwiftRenderStudio"]),
     ],
     targets: [
+        .target(name: "StudioCore"),
+        .executableTarget(name: "SwiftRenderStudio", dependencies: ["StudioCore"]),
+        .testTarget(name: "StudioCoreTests", dependencies: ["StudioCore"]),
         .target(
             name: "SwiftRender",
             dependencies: [],
